@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "dgSpecHash": "wtDzqoPxAVkI829G2UfxFrdamnfjFZ7cUIrVK7ODrSwtQxwtiyGJwsCVJ0HI94fv6790JjYebvH/Tp3z9NzzdA==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\c1419\\source\\repos\\router-rebooter\\ConsoleApp1\\ConsoleApp1\\ConsoleApp1.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\c1419\\.nuget\\packages\\engineioclientdotnet\\0.9.22\\engineioclientdotnet.0.9.22.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\microsoft.mixedreality.webrtc\\1.0.3\\microsoft.mixedreality.webrtc.1.0.3.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.0\\microsoft.netcore.platforms.1.1.0.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\microsoft.netcore.targets\\1.1.0\\microsoft.netcore.targets.1.1.0.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\newtonsoft.json\\13.0.1\\newtonsoft.json.13.0.1.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\socketioclient\\3.0.6\\socketioclient.3.0.6.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\system.collections\\4.3.0\\system.collections.4.3.0.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\system.reactive\\5.0.0\\system.reactive.5.0.0.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\system.runtime\\4.3.0\\system.runtime.4.3.0.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\system.text.encodings.web\\6.0.0\\system.text.encodings.web.6.0.0.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\system.text.json\\6.0.2\\system.text.json.6.0.2.nupkg.sha512",
+    "C:\\Users\\c1419\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\3.1.22\\microsoft.netcore.app.host.win-x64.3.1.22.nupkg.sha512"
+  ],
+  "logs": [
+    {
+      "code": "NU1701",
+      "level": "Warning",
+      "warningLevel": 1,
+      "message": "Package 'EngineIoClientDotNet 0.9.22' was restored using '.NETFramework,Version=v4.6.1, .NETFramework,Version=v4.6.2, .NETFramework,Version=v4.7, .NETFramework,Version=v4.7.1, .NETFramework,Version=v4.7.2, .NETFramework,Version=v4.8' instead of the project target framework '.NETCoreApp,Version=v3.1'. This package may not be fully compatible with your project.",
+      "libraryId": "EngineIoClientDotNet",
+      "targetGraphs": [
+        ".NETCoreApp,Version=v3.1"
+      ]
+    }
+  ]
+}
