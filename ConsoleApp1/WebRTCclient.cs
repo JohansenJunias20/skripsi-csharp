@@ -47,10 +47,11 @@ namespace ConsoleApp1
                     Console.WriteLine("offer recieve");
                     var resultstr = data.GetValue(0).ToString();
                     var result = JsonConvert.DeserializeObject<Offer>(resultstr);
-                //Console.WriteLine(result);
-                Console.WriteLine("type: " + result.type);
+                    Console.WriteLine("sdp: " + result.sdp);
+                    Console.WriteLine("type: " + result.type);
                     try
                     {
+                        
                         if (result.type == "offer")
                             pc_server.SetRemoteDescription(result.type, result.sdp);
                     }
@@ -90,8 +91,8 @@ namespace ConsoleApp1
                        recieve?.Invoke(msg);
                    };
                };
-                ws.socket.EmitAsync("get:master_csharp", roomName);
                 pc_server.InitializeAsync(config).Wait();
+                ws.socket.EmitAsync("get:master_csharp", roomName);
                 Console.WriteLine(pc_server.Initialized);
                 Console.WriteLine("peer initialized!");
             });
@@ -124,7 +125,7 @@ namespace ConsoleApp1
             };
             if (channelServer.State == DataChannel.ChannelState.Open)
             {
-                Console.WriteLine("message sent to p2p server");
+                //Console.WriteLine("message sent to p2p server");
                 channelServer.SendMessage(msg);
             }
             else

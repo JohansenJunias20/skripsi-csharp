@@ -46,8 +46,7 @@ namespace ConsoleApp1
                 while (true)
                 {
                     data = newsock.Receive(ref sender);
-                    Console.WriteLine("Message received from {0}:", sender.ToString());
-                    Console.WriteLine(data.Length);
+                    //Console.WriteLine(data.Length);
                     //Console.WriteLine(Encoding.ASCII.GetString(data, 0, data.Length));
                     onReceive?.Invoke(data);
                     //newsock.Send(data, data.Length, sender);

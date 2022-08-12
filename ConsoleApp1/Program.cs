@@ -31,7 +31,6 @@ namespace ConsoleApp1
             UDPServerUE5 = new UDPServer(new UDPServer.Config { port = portUDPserver });
             UDPServerUE5.runServer();
             UDPClientUE5 = new UDPClient(new UDPClient.Config { port = portUDPclient, IP = "127.0.0.1" });
-
             TCPServerUE5 = new TCPServer(new TCPServer.Config { port = portTCPserver });
             TCPServerUE5.runServer();
             //Console.WriteLine("readline..");
@@ -109,23 +108,30 @@ namespace ConsoleApp1
             Console.WriteLine($"ROOM: '{room}'");
             if (data.Contains("server"))
             {
+                UDPClientUE5.send("testing saja");
+
                 typeWebRTC = TypeWebRTC.server;
                 Console.WriteLine("initiation webrtc connection as server...");
                 webRTCserver = new WebRTCServer(room);
-                webRTCserver.recieveMsgP2P += delegate (byte[] msg)
+                webRTCserver.recieveMsgP2P += delegate (byte[] msg, int id)
                 {
                     Console.WriteLine("recieve message from client p2p..");
+                    Console.WriteLine(Encoding.Default.GetString(msg));
                     UDPClientUE5.send(msg);
+                    // caused loop back
+                    webRTCserver.broadcast?.Invoke(msg,id);
                 };
             }
             else if (data.Contains("client"))
             {
+                UDPClientUE5.send("testing saja");
                 typeWebRTC = TypeWebRTC.client;
                 Console.WriteLine("initiation webrtc connection as client...");
                 WebRTCclient = new WebRTCClient(room);
                 WebRTCclient.recieve += delegate (byte[] msg) // INI JALANKAN DI TASK.RUN
                 {
                     Console.WriteLine("recieve from p2p server:");
+                    UDPClientUE5.send(msg);
                     Console.WriteLine(Encoding.Default.GetString(msg));
                 };
             }
@@ -144,8 +150,8 @@ namespace ConsoleApp1
         {
             if (typeWebRTC == TypeWebRTC.server)
             {
-                //Console.WriteLine("recieve from server game broadcast to every peer...");
-                webRTCserver.broadcast(data);
+                Console.WriteLine("recieve from server game broadcast to every peer...");
+                webRTCserver.broadcast?.Invoke(data,-1); // -1 because the server
             }
             else if (typeWebRTC == TypeWebRTC.client)
             {

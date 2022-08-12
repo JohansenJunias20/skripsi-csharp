@@ -10,7 +10,7 @@ namespace ConsoleApp1
         public WebsocketClient()
         {
             Console.WriteLine("connecting to socketio server...");
-            socket = new SocketIO("ws://127.0.0.1:3000");
+            socket = new SocketIO("ws://192.168.1.100:3000");
             socket.OnConnected += async (sender, e) =>
            {
                Console.WriteLine("connected to socketio server");

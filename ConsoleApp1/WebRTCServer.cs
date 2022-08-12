@@ -10,7 +10,7 @@ namespace ConsoleApp1
     internal class WebRTCServer
     {
         public WebsocketClient ws;
-        public delegate void Notify(byte[] data);
+        public delegate void Notify(byte[] data, int idDataChannel);
         public Notify recieveMsgP2P;
         struct Answer { public string sdp; public string type; public string socketid; }
         public struct IceCandidateResp
@@ -67,8 +67,11 @@ namespace ConsoleApp1
         //idgame adalah socket id client unreal engine
         //datachannel key-nya didaftarkan berdasarkan idgame bukan socketid
         //karena socketid sudah tidak ada fungsinya lagi bila koneksi p2p sudah terestablished
+        private int peerLength = 0;
         async Task onPeerJoin(string socketid)
         {
+            int id = peerLength;
+            peerLength++;
             var pc = new PeerConnection();
             var config = new PeerConnectionConfiguration
             {
@@ -105,15 +108,23 @@ namespace ConsoleApp1
                 Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
                 if (result.State == DataChannel.ChannelState.Open)
                 {
+                    broadcast += delegate (byte[] msg, int from)
+                    {
+                      
+                        Console.WriteLine("delegate broadcast called.. from: " + from);
+                        if (id == from && from != -1) return;
+                        Console.WriteLine("delegate broadcast called.. and success ");
+                        result.SendMessage(msg);
+                    };
                     Console.WriteLine("p2p connection establised");
                     result.MessageReceived += delegate (byte[] msg)
                     {
-                        recieveMsgP2P?.Invoke(msg);
+                        recieveMsgP2P?.Invoke(msg, id);
                         //broadcast(msg); jangan dibroadcast dulu nanti jadi loop
                     };
                 }
 
-               
+
             };
             this.peers.Add(socketid, pc);
             //var result = await pc.AddDataChannelAsync("tets",false,false);
@@ -121,28 +132,32 @@ namespace ConsoleApp1
             Console.WriteLine(pc.Initialized);
             Console.WriteLine("Peer connection initialized.");
         }
-        public void broadcast(string message)
-        {
-            var bmessage = Encoding.Default.GetBytes(message);
-            //foreach peer
-            foreach (var dc_peer in dc_peers)
-            {
-                if (dc_peer.Value.State == DataChannel.ChannelState.Open)
-                {
+        public delegate void BroadcastDelegate(byte[] data, int idDataChannel);
+        public BroadcastDelegate broadcast;
+        //public void broadcast(byte[] message, int from)
+        //{
+        //    Console.WriteLine("from :" + from);
+        //    Console.WriteLine("dc peers:" + dc_peers.Count);
+        //    //foreach peer
+        //    foreach (var dc_peer in dc_peers)
+        //    {
+        //        Console.WriteLine("dc peers masuk loop");
+        //        Console.WriteLine("id: " + dc_peer.Value.ID);
+        //        if (dc_peer.Value.ID == from) continue; //the broadcaster
+        //        Console.WriteLine("dc peers masuk loop 1");
+        //        if (dc_peer.Value.State == DataChannel.ChannelState.Open)
+        //        {
+        //            Console.WriteLine("dc peers masuk loop 2");
+        //            dc_peer.Value.SendMessage(message);
+        //            Console.WriteLine("dc peers masuk loop 2");
+        //        }
+        //        else
+        //        {
+        //            Console.WriteLine("Cannot broadcast!, data channel state is closed");
+        //        }
 
-                }
-                    dc_peer.Value.SendMessage(bmessage);
-            }
-        }
-        public void broadcast(byte[] message)
-        {
-            //foreach peer
-            foreach (var dc_peer in dc_peers)
-            {
-                if (dc_peer.Value.State == DataChannel.ChannelState.Open)
-                    dc_peer.Value.SendMessage(message);
-            }
-        }
-     
+        //    }
+        //}
+
     }
 }
