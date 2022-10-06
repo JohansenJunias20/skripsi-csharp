@@ -15,7 +15,7 @@ namespace ConsoleApp1
         public struct Offer { public string sdp; public string type; };
         public string socketid_server = "";
         public DataChannel channelServer = null;
-        public WebRTCClient(string roomName)
+        public WebRTCClient()
         {
             //why use task run?
             //sepertinya PeerConnection datachannel menggunakan thread utama
@@ -40,7 +40,7 @@ namespace ConsoleApp1
                     socketid_server = data.GetValue<string>();
                     Console.WriteLine("socketid_server:");
                     Console.WriteLine(socketid_server);
-                    startConnect(roomName);
+                    startConnect();
                 });
                 ws.socket.On("offer", (data) =>
                 {
@@ -95,7 +95,7 @@ namespace ConsoleApp1
                    };
                };
                 pc_server.InitializeAsync(config).Wait();
-                ws.socket.EmitAsync("get:master_csharp", roomName);
+                ws.socket.EmitAsync("get:master_csharp", "");
                 Console.WriteLine(pc_server.Initialized);
                 Console.WriteLine("peer initialized!");
             });
@@ -103,7 +103,7 @@ namespace ConsoleApp1
         public delegate void NotifyRecieve(byte[] data);
         public NotifyRecieve recieve;
         //gameid is socket id yang client dari unreal engine.
-        private void startConnect(string roomName)
+        private void startConnect()
         {
             Console.WriteLine("joinpeer initiate..");
             pc_server.IceCandidateReadytoSend += delegate (string candidate, int sdpMlineindex, string sdpMid)
@@ -117,7 +117,7 @@ namespace ConsoleApp1
                 });
             };
             //client dont need negotiation
-            ws.socket.EmitAsync("joinpeer", roomName);
+            ws.socket.EmitAsync("joinpeer", "");
         }
         public void send(byte[] msg)
         {

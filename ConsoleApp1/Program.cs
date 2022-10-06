@@ -53,6 +53,7 @@ namespace ConsoleApp1
 
             TCPServerUE5 = new TCPServer(new TCPServer.Config { port = portTCPserver });
             TCPServerUE5.runServer();
+            //TCPServerUE5.
             //Console.WriteLine("readline..");
             //Console.ReadLine();
             UDPServerUE5.onReceive += UDPServerUE5_onReceive;
@@ -123,15 +124,15 @@ namespace ConsoleApp1
             //write data to data.txt
             File.WriteAllTextAsync("data.txt", data).Wait();
             Console.WriteLine($"recieve tcp data: '{data}'");
-            var room = data.Split("|")[1];
-            Console.WriteLine($"ROOM: '{room}'");
+            //var room = data.Split("|")[1];
+            //Console.WriteLine($"ROOM: '{room}'");
             if (data.Contains("server"))
             {
                 UDPClientUE5.send("testing saja");
 
                 typeWebRTC = TypeWebRTC.server;
                 Console.WriteLine("initiation webrtc connection as server...");
-                webRTCserver = new WebRTCServer(room);
+                webRTCserver = new WebRTCServer();
                 webRTCserver.recieveMsgP2P += delegate (byte[] msg, int id)
                 {
                     Console.WriteLine("recieve message from client p2p..");
@@ -146,7 +147,7 @@ namespace ConsoleApp1
                 UDPClientUE5.send("testing saja");
                 typeWebRTC = TypeWebRTC.client;
                 Console.WriteLine("initiation webrtc connection as client...");
-                WebRTCclient = new WebRTCClient(room);
+                WebRTCclient = new WebRTCClient();
                 WebRTCclient.recieve += delegate (byte[] msg) // INI JALANKAN DI TASK.RUN
                 {
                     Console.WriteLine("recieve from p2p server:");

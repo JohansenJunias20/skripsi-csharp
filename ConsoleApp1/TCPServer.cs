@@ -28,6 +28,7 @@ namespace ConsoleApp1
         private bool isClientConnected = false;
         public void runServer()
         {
+
             Task.Run(() =>
             {
 
@@ -35,25 +36,37 @@ namespace ConsoleApp1
                 {
                     Console.WriteLine("waiting for client TCP...");
                     TcpClient client = server.AcceptTcpClient();  //if a connection exists, the server will accept it
-                    isClientConnected = true;
-                    Console.WriteLine("TCP client connected...");
-                    while (true)  //while the client is connected, we look for incoming messages
+                    if (isClientConnected)
                     {
-
-                        NetworkStream ns = client.GetStream(); //networkstream is used to send/receive messages
-                        byte[] msg = new byte[1024];     //the messages arrive as byte array
-                        int n = ns.Read(msg, 0, msg.Length);   //the same networkstream reads the message sent by the client
-                        if (n == 0) //NOT DETECTED
-                        {
-                            Console.WriteLine("client disconnected");
-                            //disconnected
-                            break;
-                        }
-                        onReceive?.Invoke(Encoding.UTF8.GetString(msg));
-                        //convert msg bytes to string
-                        Console.WriteLine($"`{Encoding.Default.GetString(msg)}`");
+                        var stream = client.GetStream();
+                        byte[] bytes = Encoding.ASCII.GetBytes("taken");
+                        stream.Write(bytes, 0, bytes.Length);
+                        continue;
                     }
-                    Console.WriteLine("client disconnected");
+                    var _bytes = Encoding.ASCII.GetBytes("ready");
+                    client.GetStream().Write(_bytes, 0, _bytes.Length);
+                    isClientConnected = true;
+                    Task.Run(() =>
+                    {
+                        Console.WriteLine("TCP client connected...");
+                        while (true)  //while the client is connected, we look for incoming messages
+                        {
+
+                            NetworkStream ns = client.GetStream(); //networkstream is used to send/receive messages
+                            byte[] msg = new byte[1024];     //the messages arrive as byte array
+                            int n = ns.Read(msg, 0, msg.Length);   //the same networkstream reads the message sent by the client
+                            if (n == 0) //NOT DETECTED
+                            {
+                                Console.WriteLine("client disconnected");
+                                //disconnected
+                                break;
+                            }
+                            onReceive?.Invoke(Encoding.UTF8.GetString(msg));
+                            //convert msg bytes to string
+                            Console.WriteLine($"`{Encoding.Default.GetString(msg)}`");
+                        }
+                        Console.WriteLine("client disconnected");
+                    });
                 }
             }
             );

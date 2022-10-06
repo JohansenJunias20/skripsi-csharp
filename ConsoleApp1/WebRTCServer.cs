@@ -27,7 +27,7 @@ namespace ConsoleApp1
         //    public string socketid_csharp;
         //    public string socketid;
         //}
-        public WebRTCServer(string roomName)
+        public WebRTCServer()
         {
             Console.WriteLine("initializing webrtcserver");
             ws = new WebsocketClient();
@@ -35,7 +35,7 @@ namespace ConsoleApp1
             #region DEBUG
             //ws.socket.EmitAsync("createroom", new { roomName = "test" }).Wait();
             #endregion
-            ws.socket.EmitAsync("set:master_socketid_csharp", roomName).Wait();
+            ws.socket.EmitAsync("set:master_socketid_csharp","").Wait();
             Console.WriteLine("seted socketid_csharp..");
             ws.socket.On("joinpeer", (response) =>
             {
