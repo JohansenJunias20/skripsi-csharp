@@ -32,6 +32,9 @@ namespace ConsoleApp1
             Console.WriteLine("initializing webrtcserver");
             ws = new WebsocketClient();
             Console.WriteLine("setting socketid_csharp..");
+            #region DEBUG
+            //ws.socket.EmitAsync("createroom", new { roomName = "test" }).Wait();
+            #endregion
             ws.socket.EmitAsync("set:master_socketid_csharp", roomName).Wait();
             Console.WriteLine("seted socketid_csharp..");
             ws.socket.On("joinpeer", (response) =>
@@ -108,9 +111,22 @@ namespace ConsoleApp1
                 Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
                 if (result.State == DataChannel.ChannelState.Open)
                 {
+                    #region DEBUG
+                    //Task.Run(async () =>
+                    //{
+                    //    for (; ; )
+                    //    {
+                    //        //convert to byte[]
+                    //        await Task.Delay(50);
+                    //        //get unix timestamp
+                    //        Console.WriteLine("sending...");
+                    //        result.SendMessage(Encoding.UTF8.GetBytes(((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds().ToString()));
+                    //    }
+                    //});
+                    #endregion
                     broadcast += delegate (byte[] msg, int from)
                     {
-                      
+
                         Console.WriteLine("delegate broadcast called.. from: " + from);
                         if (id == from && from != -1) return;
                         Console.WriteLine("delegate broadcast called.. and success ");
@@ -120,7 +136,12 @@ namespace ConsoleApp1
                     result.MessageReceived += delegate (byte[] msg)
                     {
                         recieveMsgP2P?.Invoke(msg, id);
-                        //broadcast(msg); jangan dibroadcast dulu nanti jadi loop
+                        #region DEBUG
+                        //var unixNow = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
+                        //var data = Encoding.UTF8.GetString(msg);
+                        //var unixMil = Convert.ToInt64(data);
+                        //Console.WriteLine($"latency: {unixNow - unixMil}ms");
+                        #endregion
                     };
                 }
 

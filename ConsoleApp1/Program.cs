@@ -17,10 +17,13 @@ namespace ConsoleApp1
         public static TCPServer TCPServerUE5; // to recieve and send packet from UE5 (because it is bi-directional and open an connection)
         static async Task Main(string[] args)
         {
-            //onPeerJoin();
+            #region DEBUG
             //debugWebrtc();
-            Console.WriteLine("port UDP server(0/1/2/3/...)");
-            var mod = Convert.ToInt32(Console.ReadLine());
+            //return;
+            #endregion
+            //Console.WriteLine("port UDP server(0/1/2/3/...)");
+            //var mod = Convert.ToInt32(Console.ReadLine());
+            var mod = 0;
 
             var portUDPserver = 3001 + (3 * mod);
             Console.WriteLine("port UDP client");
@@ -28,9 +31,26 @@ namespace ConsoleApp1
             Console.WriteLine("port TCP server");
             var portTCPserver = 3003 + (3 * mod);
             //return;
+       
+
+            while (true)
+            {
+                if (TCPchecker.check(3003 + (3 * mod)))
+                {
+                    portUDPserver = 3001 + (3 * mod);
+                    portUDPclient = 3002 + (3 * mod);
+                    portTCPserver = 3003 + (3 * mod);
+                    break;
+                }
+                mod++;
+            }
+            Console.WriteLine(portUDPserver);
+            Console.WriteLine(portUDPclient);
+            Console.WriteLine(portTCPserver);
             UDPServerUE5 = new UDPServer(new UDPServer.Config { port = portUDPserver });
             UDPServerUE5.runServer();
             UDPClientUE5 = new UDPClient(new UDPClient.Config { port = portUDPclient, IP = "127.0.0.1" });
+
             TCPServerUE5 = new TCPServer(new TCPServer.Config { port = portTCPserver });
             TCPServerUE5.runServer();
             //Console.WriteLine("readline..");
@@ -52,24 +72,23 @@ namespace ConsoleApp1
         //{
         //    Console.ReadLine();
         //}
+        #region DEBUG
         //private static void debugWebrtc()
         //{
         //    Console.WriteLine("Server or Client ? (S/C)");
         //    string inpt = Console.ReadLine();
         //    if (inpt.ToUpper() == "S")
         //    {
-        //        webRTCserver = new WebRTCServer();
+        //        webRTCserver = new WebRTCServer("test");
         //        typeWebRTC = TypeWebRTC.server;
-        //        object data;
-        //        //data.roomName = "test";
-        //        webRTCserver.ws.socket.EmitAsync("createroom", new { roomName = "test" }).Wait();
+        //        //webRTCserver.ws.socket.EmitAsync("createroom", new { roomName = "test" }).Wait();
         //    }
         //    else if (inpt.ToUpper() == "C")
         //    {
         //        try
         //        {
 
-        //        WebRTCclient = new WebRTCClient("Test");
+        //            WebRTCclient = new WebRTCClient("test");
         //        }
         //        catch (Exception ex)
         //        {
@@ -88,7 +107,7 @@ namespace ConsoleApp1
         //    Console.ReadLine();
         //    //throw new NotImplementedException();
         //}
-
+        #endregion
         public enum TypeWebRTC
         {
             server,
@@ -119,7 +138,7 @@ namespace ConsoleApp1
                     Console.WriteLine(Encoding.Default.GetString(msg));
                     UDPClientUE5.send(msg);
                     // caused loop back
-                    webRTCserver.broadcast?.Invoke(msg,id);
+                    webRTCserver.broadcast?.Invoke(msg, id);
                 };
             }
             else if (data.Contains("client"))
@@ -148,10 +167,11 @@ namespace ConsoleApp1
         }
         private static void UDPServerUE5_onReceive(byte[] data)
         {
+            Console.WriteLine("RECIEVE FROM UDP UE5..");
             if (typeWebRTC == TypeWebRTC.server)
             {
                 Console.WriteLine("recieve from server game broadcast to every peer...");
-                webRTCserver.broadcast?.Invoke(data,-1); // -1 because the server
+                webRTCserver.broadcast?.Invoke(data, -1); // -1 because the server
             }
             else if (typeWebRTC == TypeWebRTC.client)
             {

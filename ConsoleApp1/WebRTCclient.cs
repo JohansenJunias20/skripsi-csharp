@@ -14,7 +14,7 @@ namespace ConsoleApp1
         public PeerConnection pc_server;
         public struct Offer { public string sdp; public string type; };
         public string socketid_server = "";
-        public DataChannel channelServer =null;
+        public DataChannel channelServer = null;
         public WebRTCClient(string roomName)
         {
             //why use task run?
@@ -51,7 +51,7 @@ namespace ConsoleApp1
                     Console.WriteLine("type: " + result.type);
                     try
                     {
-                        
+
                         if (result.type == "offer")
                             pc_server.SetRemoteDescription(result.type, result.sdp);
                     }
@@ -80,14 +80,17 @@ namespace ConsoleApp1
                     var resultstr = data.GetValue(0).ToString();
                     var result = JsonConvert.DeserializeObject<IceCandidateResp>(resultstr);
                     pc_server.AddIceCandidate(result.sdpmid, result.sdpindex, result.candidate);
-                //pc_server.AddIceCandidate("q");
-            });
+                    //pc_server.AddIceCandidate("q");
+                });
                 pc_server.DataChannelAdded += (data) =>
                {
                    Console.WriteLine("data channel added...");
                    channelServer = data;
                    data.MessageReceived += delegate (byte[] msg)
                    {
+                       #region DEBUG
+                       //send(msg); //send back to the server because difference time between computers
+                       #endregion
                        recieve?.Invoke(msg);
                    };
                };

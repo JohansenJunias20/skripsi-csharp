@@ -25,6 +25,7 @@ namespace ConsoleApp1
 
             server.Start();  // this will start the server
         }
+        private bool isClientConnected = false;
         public void runServer()
         {
             Task.Run(() =>
@@ -34,6 +35,7 @@ namespace ConsoleApp1
                 {
                     Console.WriteLine("waiting for client TCP...");
                     TcpClient client = server.AcceptTcpClient();  //if a connection exists, the server will accept it
+                    isClientConnected = true;
                     Console.WriteLine("TCP client connected...");
                     while (true)  //while the client is connected, we look for incoming messages
                     {
