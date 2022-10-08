@@ -39,11 +39,13 @@ namespace ConsoleApp1
                     if (isClientConnected)
                     {
                         var stream = client.GetStream();
+                    Console.WriteLine("sending TAKEN signal...");
                         byte[] bytes = Encoding.ASCII.GetBytes("taken");
                         stream.Write(bytes, 0, bytes.Length);
                         continue;
                     }
                     var _bytes = Encoding.ASCII.GetBytes("ready");
+                    Console.WriteLine("sending ready signal...");
                     client.GetStream().Write(_bytes, 0, _bytes.Length);
                     isClientConnected = true;
                     Task.Run(() =>

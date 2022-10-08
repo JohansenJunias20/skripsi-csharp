@@ -10,17 +10,25 @@ namespace ConsoleApp1
         public WebsocketClient()
         {
             Console.WriteLine("connecting to socketio server...");
-            socket = new SocketIO("ws://192.168.1.100:3000");
+            socket = new SocketIO("ws://192.168.1.99:3000");
             socket.OnConnected += async (sender, e) =>
            {
                Console.WriteLine("connected to socketio server");
            };
+            socket.OnError += Socket_OnError;
             //socket.On("test", () =>
             //{
             //    socket.Emit("hi");
 
             //});
             socket.ConnectAsync().Wait();
+        }
+
+        private void Socket_OnError(object sender, string e)
+        {
+            Console.WriteLine("error socketio connection");
+            Console.WriteLine(e);
+            //throw new NotImplementedException();
         }
     }
 }

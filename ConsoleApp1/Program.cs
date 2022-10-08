@@ -126,11 +126,11 @@ namespace ConsoleApp1
             Console.WriteLine($"recieve tcp data: '{data}'");
             //var room = data.Split("|")[1];
             //Console.WriteLine($"ROOM: '{room}'");
+            //return;
             if (data.Contains("server"))
             {
                 UDPClientUE5.send("testing saja");
 
-                typeWebRTC = TypeWebRTC.server;
                 Console.WriteLine("initiation webrtc connection as server...");
                 webRTCserver = new WebRTCServer();
                 webRTCserver.recieveMsgP2P += delegate (byte[] msg, int id)
@@ -141,6 +141,7 @@ namespace ConsoleApp1
                     // caused loop back
                     webRTCserver.broadcast?.Invoke(msg, id);
                 };
+                typeWebRTC = TypeWebRTC.server;
             }
             else if (data.Contains("client"))
             {
