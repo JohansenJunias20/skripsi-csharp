@@ -173,7 +173,7 @@ namespace ConsoleApp1
             if (typeWebRTC == TypeWebRTC.server)
             {
                 Console.WriteLine("recieve from server game broadcast to every peer...");
-                webRTCserver.broadcast?.Invoke(data, -1); // -1 because the server
+                webRTCserver?.broadcast?.Invoke(data, -1); // -1 because the server
             }
             else if (typeWebRTC == TypeWebRTC.client)
             {
