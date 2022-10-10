@@ -15,6 +15,7 @@ namespace ConsoleApp1
         public struct Offer { public string sdp; public string type; };
         public string socketid_server = "";
         public DataChannel channelServer = null;
+        public DataChannel channelServerReliable = null;
         public WebRTCClient()
         {
             //why use task run?
@@ -85,14 +86,27 @@ namespace ConsoleApp1
                 pc_server.DataChannelAdded += (data) =>
                {
                    Console.WriteLine("data channel added...");
-                   channelServer = data;
-                   data.MessageReceived += delegate (byte[] msg)
+                   if (data.Label == "channel")
                    {
-                       #region DEBUG
-                       //send(msg); //send back to the server because difference time between computers
-                       #endregion
-                       recieve?.Invoke(msg);
-                   };
+                       //unreliable
+                       channelServer = data;
+                       data.MessageReceived += delegate (byte[] msg)
+                       {
+                           #region DEBUG
+                           //send(msg); //send back to the server because difference time between computers
+                           #endregion
+                           recieve?.Invoke(msg);
+                       };
+                   }
+                   else
+                   {
+                       channelServerReliable = data;
+                       data.MessageReceived += delegate (byte[] msg)
+                       {
+                           recieveReliable?.Invoke(msg);
+                       };
+                   }
+
                };
                 pc_server.InitializeAsync(config).Wait();
                 ws.socket.EmitAsync("get:master_csharp", "");
@@ -102,6 +116,7 @@ namespace ConsoleApp1
         }
         public delegate void NotifyRecieve(byte[] data);
         public NotifyRecieve recieve;
+        public NotifyRecieve recieveReliable;
         //gameid is socket id yang client dari unreal engine.
         private void startConnect()
         {
@@ -134,6 +149,24 @@ namespace ConsoleApp1
             else
             {
                 Console.WriteLine("data channel is not open yet!!!");
+            }
+
+        }
+        public void sendReliable(byte[] msg)
+        {
+            if (channelServerReliable == null)
+            {
+                Console.WriteLine("channel is null");
+                return;
+            };
+            if (channelServerReliable.State == DataChannel.ChannelState.Open)
+            {
+                //Console.WriteLine("message sent to p2p server");
+                channelServerReliable.SendMessage(msg);
+            }
+            else
+            {
+                Console.WriteLine("data channel reliable is not open yet!!!");
             }
         }
     }

@@ -135,8 +135,8 @@ namespace ConsoleApp1
                 webRTCserver = new WebRTCServer();
                 webRTCserver.recieveMsgP2P += delegate (byte[] msg, int id)
                 {
-                    Console.WriteLine("recieve message from client p2p..");
-                    Console.WriteLine(Encoding.Default.GetString(msg));
+                    //Console.WriteLine("recieve message from client p2p..");
+                    //Console.WriteLine(Encoding.Default.GetString(msg));
                     UDPClientUE5.send(msg);
                     // caused loop back
                     webRTCserver.broadcast?.Invoke(msg, id);
@@ -169,10 +169,10 @@ namespace ConsoleApp1
         }
         private static void UDPServerUE5_onReceive(byte[] data)
         {
-            Console.WriteLine("RECIEVE FROM UDP UE5..");
+            //Console.WriteLine("RECIEVE FROM UDP UE5..");
             if (typeWebRTC == TypeWebRTC.server)
             {
-                Console.WriteLine("recieve from server game broadcast to every peer...");
+                //Console.WriteLine("recieve from server game broadcast to every peer...");
                 webRTCserver?.broadcast?.Invoke(data, -1); // -1 because the server
             }
             else if (typeWebRTC == TypeWebRTC.client)

@@ -12,6 +12,7 @@ namespace ConsoleApp1
         public WebsocketClient ws;
         public delegate void Notify(byte[] data, int idDataChannel);
         public Notify recieveMsgP2P;
+        public Notify recieveMsgP2PReliable;
         struct Answer { public string sdp; public string type; public string socketid; }
         public struct IceCandidateResp
         {
@@ -22,6 +23,7 @@ namespace ConsoleApp1
         }
         public Dictionary<string, PeerConnection> peers = new Dictionary<string, PeerConnection>();
         public Dictionary<string, DataChannel> dc_peers = new Dictionary<string, DataChannel>();
+        public Dictionary<string, DataChannel> dc_peers_reliable = new Dictionary<string, DataChannel>();
         //struct JoinPeerResp
         //{
         //    public string socketid_csharp;
@@ -35,7 +37,7 @@ namespace ConsoleApp1
             #region DEBUG
             //ws.socket.EmitAsync("createroom", new { roomName = "test" }).Wait();
             #endregion
-            ws.socket.EmitAsync("set:master_socketid_csharp","").Wait();
+            ws.socket.EmitAsync("set:master_socketid_csharp", "").Wait();
             Console.WriteLine("seted socketid_csharp..");
             ws.socket.On("joinpeer", (response) =>
             {
@@ -104,56 +106,97 @@ namespace ConsoleApp1
                 pc.CreateOffer();
             };
             await pc.InitializeAsync(config);
-            var result = await pc.AddDataChannelAsync("channel", false, false);
-            dc_peers.Add(socketid, result);
-            result.StateChanged += delegate ()
-            {
-                Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
-                if (result.State == DataChannel.ChannelState.Open)
-                {
-                    #region DEBUG
-                    //Task.Run(async () =>
-                    //{
-                    //    for (; ; )
-                    //    {
-                    //        //convert to byte[]
-                    //        await Task.Delay(50);
-                    //        //get unix timestamp
-                    //        Console.WriteLine("sending...");
-                    //        result.SendMessage(Encoding.UTF8.GetBytes(((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds().ToString()));
-                    //    }
-                    //});
-                    #endregion
-                    broadcast += delegate (byte[] msg, int from)
-                    {
-
-                        Console.WriteLine("delegate broadcast called.. from: " + from);
-                        if (id == from && from != -1) return;
-                        Console.WriteLine("delegate broadcast called.. and success ");
-                        result.SendMessage(msg);
-                    };
-                    Console.WriteLine("p2p connection establised");
-                    result.MessageReceived += delegate (byte[] msg)
-                    {
-                        recieveMsgP2P?.Invoke(msg, id);
+            pc.AddDataChannelAsync("channel", false, false).ContinueWith(async (task) =>
+           {
+                //var rs = task.Result;
+                var result = await task;
+               dc_peers.Add(socketid, result);
+               int idd = 123;
+               result.StateChanged += async delegate ()
+               {
+                   Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
+                   Console.WriteLine($"id {idd}");
+                   if (result.State == DataChannel.ChannelState.Open)
+                   {
                         #region DEBUG
-                        //var unixNow = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
-                        //var data = Encoding.UTF8.GetString(msg);
-                        //var unixMil = Convert.ToInt64(data);
-                        //Console.WriteLine($"latency: {unixNow - unixMil}ms");
+                        //Task.Run(async () =>
+                        //{
+                        //    for (; ; )
+                        //    {
+                        //        //convert to byte[]
+                        //        await Task.Delay(50);
+                        //        //get unix timestamp
+                        //        Console.WriteLine("sending...");
+                        //        result.SendMessage(Encoding.UTF8.GetBytes(((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds().ToString()));
+                        //    }
+                        //});
                         #endregion
-                    };
-                }
+                        broadcast += delegate (byte[] msg, int from)
+                         {
+
+                             Console.WriteLine("delegate broadcast called.. from: " + from);
+                             if (id == from && from != -1) return;
+                             Console.WriteLine("delegate broadcast called.. and success ");
+                             result.SendMessage(msg);
+                         };
+                       Console.WriteLine("p2p unreliable connection establised");
+                       result.MessageReceived += delegate (byte[] msg)
+                       {
+                           recieveMsgP2P?.Invoke(msg, id);
+                            #region DEBUG
+                            //var unixNow = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
+                            //var data = Encoding.UTF8.GetString(msg);
+                            //var unixMil = Convert.ToInt64(data);
+                            //Console.WriteLine($"latency: {unixNow - unixMil}ms");
+                            #endregion
+                        };
 
 
-            };
+                   }
+
+
+               };
+           });
+            pc.AddDataChannelAsync("reliable", true, true).ContinueWith(async (task) =>
+            {
+                var result_reliable = await task;
+                Console.WriteLine("adding reliable channel");
+                Console.WriteLine("added reliable channel");
+                 //dc_peers_reliable.Add(socketid, result_reliable);
+                 result_reliable.StateChanged += delegate ()
+                {
+                    Console.WriteLine($"datachannel state changed to: {result_reliable.State.ToString()}");
+                    if (result_reliable.State == DataChannel.ChannelState.Open)
+                    {
+                        broadcast_reliable += delegate (byte[] msg, int from)
+                        {
+
+                            Console.WriteLine("delegate broadcast called.. from: " + from);
+                            if (id == from && from != -1) return;
+                            Console.WriteLine("delegate broadcast called.. and success ");
+                            result_reliable.SendMessage(msg);
+                        };
+                        Console.WriteLine("p2p reliable connection establised");
+                        result_reliable.MessageReceived += delegate (byte[] msg)
+                        {
+                             //recieveMsgP2PReliable?.Invoke(msg, id);
+
+                         };
+                    }
+
+
+                };
+            });
+
+
             this.peers.Add(socketid, pc);
             //var result = await pc.AddDataChannelAsync("tets",false,false);
-            pc.InitializeAsync(config).Wait();
+            //pc.InitializeAsync(config).Wait();
             Console.WriteLine(pc.Initialized);
             Console.WriteLine("Peer connection initialized.");
         }
         public delegate void BroadcastDelegate(byte[] data, int idDataChannel);
+        public BroadcastDelegate broadcast_reliable;
         public BroadcastDelegate broadcast;
         //public void broadcast(byte[] message, int from)
         //{
