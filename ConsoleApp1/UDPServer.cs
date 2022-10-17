@@ -45,10 +45,11 @@ namespace ConsoleApp1
                 initialized = true;
                 while (true)
                 {
-                    data = newsock.Receive(ref sender);
+                    var temp = newsock.Receive(ref sender);
+                    //Console.WriteLine("recieve udp msg from ue client");
                     //Console.WriteLine(data.Length);
                     //Console.WriteLine(Encoding.ASCII.GetString(data, 0, data.Length));
-                    onReceive?.Invoke(data);
+                    onReceive?.Invoke(temp);
                     //newsock.Send(data, data.Length, sender);
                 }
             });
