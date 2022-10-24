@@ -1,9 +1,12 @@
 ﻿using Microsoft.MixedReality.WebRTC;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using static ConsoleApp1.WebRTCClient;
 
 namespace ConsoleApp1
 {
@@ -21,16 +24,22 @@ namespace ConsoleApp1
             public string candidate;
             public string socketid;
         }
+        public struct AudioStruct
+        {
+            public WaveOutEvent wo;
+            public BufferedWaveProvider bwp;
+            public VolumeSampleProvider vsp;
+        }
         public Dictionary<string, PeerConnection> peers = new Dictionary<string, PeerConnection>();
         public Dictionary<string, DataChannel> dc_peers = new Dictionary<string, DataChannel>();
+        public Dictionary<string, AudioStruct> audio_dict = new Dictionary<string, AudioStruct>();
         public Dictionary<string, DataChannel> dc_peers_reliable = new Dictionary<string, DataChannel>();
-        //struct JoinPeerResp
-        //{
-        //    public string socketid_csharp;
-        //    public string socketid;
-        //}
+        //public WaveInEvent waveSource;
         public WebRTCServer()
         {
+            //waveSource = new WaveInEvent();
+            //waveSource.DataAvailable += WaveSource_DataAvailable;
+            //waveSource.StartRecording();
             //Console.WriteLine("initializing webrtcserver");
             //Program.ws = new WebsocketClient();
             //Console.WriteLine("setting socketid_csharp..");
@@ -66,7 +75,27 @@ namespace ConsoleApp1
                 if (result.type == "answer")
                     peers[result.socketid].SetRemoteDescription(result.type, result.sdp);
             });
+            int waveOutDevices = WaveOut.DeviceCount;
+            for (int waveOutDevice = 0; waveOutDevice < waveOutDevices; waveOutDevice++)
+            {
+                WaveOutCapabilities deviceInfo = WaveOut.GetCapabilities(waveOutDevice);
+                Console.WriteLine("Device {0}: {1}, {2} channels", waveOutDevice, deviceInfo.ProductName, deviceInfo.Channels);
+            }
         }
+
+        private void WaveSource_DataAvailable(byte[] buffer, string socketid)
+        {
+            if (buffer == null) return;
+            if (!audio_dict.ContainsKey(socketid)) return;
+           
+            audio_dict[socketid].vsp.Volume = ((float) Program.player_proximity[socketid])/100f;
+            //Console.WriteLine($"final volume: {((float)Program.player_proximity[socketid]) / 100f}");
+            //audio_dict[socketid].vsp.Volume = Program.player_proximity[socketid]/100;
+            audio_dict[socketid].bwp.AddSamples(buffer, 0, buffer.Length);
+            //Console.WriteLine("recieving...");
+
+        }
+
         //karena ada 2 socket io client yaitu yang dari c# dan dari unreal engine
         //maka socketid adalah socket id client c#
         //idgame adalah socket id client unreal engine
@@ -75,8 +104,27 @@ namespace ConsoleApp1
         private int peerLength = 0;
         public async Task onPeerJoin(string socketid)
         {
+            var WF = new WaveFormat(8000, 1);
+            var bwp = new BufferedWaveProvider(WF);
+            var audiostruct = new AudioStruct()
+            {
+                bwp = bwp,
+                wo = new WaveOutEvent(),
+                vsp = new VolumeSampleProvider(bwp.ToSampleProvider())
+            };
+            audiostruct.vsp.Volume = 1f;
+            audiostruct.wo.Init(audiostruct.vsp);
+            audiostruct.wo.Play();
+            audio_dict.Add(socketid, audiostruct);
             int id = peerLength;
             peerLength++;
+
+            //Console.WriteLine("recieving...");
+            if (!Program.player_proximity.ContainsKey(socketid))
+            {
+                Program.player_proximity.Add(socketid, 100);
+            }
+
             var pc = new PeerConnection();
             var config = new PeerConnectionConfiguration
             {
@@ -108,7 +156,7 @@ namespace ConsoleApp1
             };
             await pc.InitializeAsync(config);
             Console.WriteLine("webrtc initialized");
-            pc.AddDataChannelAsync("channel", false, false).ContinueWith(async (task) =>
+            _ = pc.AddDataChannelAsync("transform", false, false).ContinueWith(async (task) =>
            {
                //var rs = task.Result;
                Console.WriteLine("task unreliable..");
@@ -121,19 +169,7 @@ namespace ConsoleApp1
                    Console.WriteLine($"id {idd}");
                    if (result.State == DataChannel.ChannelState.Open)
                    {
-                       #region DEBUG
-                       //Task.Run(async () =>
-                       //{
-                       //    for (; ; )
-                       //    {
-                       //        //convert to byte[]
-                       //        await Task.Delay(50);
-                       //        //get unix timestamp
-                       //        Console.WriteLine("sending...");
-                       //        result.SendMessage(Encoding.UTF8.GetBytes(((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds().ToString()));
-                       //    }
-                       //});
-                       #endregion
+
                        broadcast += delegate (byte[] msg, int from)
                         {
 
@@ -146,12 +182,7 @@ namespace ConsoleApp1
                        result.MessageReceived += delegate (byte[] msg)
                        {
                            recieveMsgP2P?.Invoke(msg, id);
-                           #region DEBUG
-                           //var unixNow = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
-                           //var data = Encoding.UTF8.GetString(msg);
-                           //var unixMil = Convert.ToInt64(data);
-                           //Console.WriteLine($"latency: {unixNow - unixMil}ms");
-                           #endregion
+
                        };
 
 
@@ -160,40 +191,151 @@ namespace ConsoleApp1
 
                };
            });
-            pc.AddDataChannelAsync("reliable", true, true).ContinueWith(async (task) =>
-            {
-                Console.WriteLine("task reliable..");
-                var result_reliable = await task;
-                Console.WriteLine("adding reliable channel");
-                Console.WriteLine("added reliable channel");
-                //dc_peers_reliable.Add(socketid, result_reliable);
-                result_reliable.StateChanged += delegate ()
-               {
-                   Console.WriteLine($"datachannel state changed to: {result_reliable.State.ToString()}");
-                   if (result_reliable.State == DataChannel.ChannelState.Open)
+            _ = pc.AddDataChannelAsync("reliable", true, true).ContinueWith(async (task) =>
+              {
+                  var result_reliable = await task;
+                  //dc_peers_reliable.Add(socketid, result_reliable);
+                  result_reliable.StateChanged += delegate ()
                    {
-                       broadcast_reliable += delegate (byte[] msg, int from)
+                       Console.WriteLine($"datachannel state changed to: {result_reliable.State.ToString()}");
+                       if (result_reliable.State == DataChannel.ChannelState.Open)
                        {
+                           broadcast_reliable += delegate (byte[] msg, int from)
+                           {
 
+                               //Console.WriteLine("delegate broadcast called.. from: " + from);
+                               if (id == from && from != -1) return;
+                               //Console.WriteLine("delegate broadcast called.. and success ");
+                               result_reliable.SendMessage(msg);
+                           };
+                           Console.WriteLine("p2p reliable connection establised");
+                           result_reliable.MessageReceived += delegate (byte[] msg)
+                           {
+                               recieveMsgP2PReliable?.Invoke(msg, id);
+                               //recieveMsgP2PReliable?.Invoke(msg, id);
+
+                           };
+                       }
+
+
+                   };
+              });
+            _ = pc.AddDataChannelAsync("audio", false, false).ContinueWith(async (task) =>
+            {
+                Console.WriteLine("task unreliable..");
+                var result = await task;
+                //dc_peers.Add(socketid, result);
+                int idd = 123;
+                result.StateChanged += delegate ()
+                {
+                    Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
+                    Console.WriteLine($"id {idd}");
+                    if (result.State == DataChannel.ChannelState.Open)
+                    {
+                        broadcast_audio += (msg, from) =>
+                       {
                            //Console.WriteLine("delegate broadcast called.. from: " + from);
                            if (id == from && from != -1) return;
                            //Console.WriteLine("delegate broadcast called.. and success ");
-                           result_reliable.SendMessage(msg);
+                           result.SendMessage(msg);
                        };
-                       Console.WriteLine("p2p reliable connection establised");
-                       result_reliable.MessageReceived += delegate (byte[] msg)
-                       {
-                           recieveMsgP2PReliable?.Invoke(msg,id);
-                           //recieveMsgP2PReliable?.Invoke(msg, id);
 
-                       };
-                   }
+                        Console.WriteLine("p2p voice connection establised");
+                        result.MessageReceived += delegate (byte[] msg)
+                        {
+                            //recieveMsgP2P?.Invoke(msg, id);
+                            //var data = JsonConvert.DeserializeObject<DataVoice>(Encoding.UTF8.GetString(msg, 0, msg.Length));
+                            WaveSource_DataAvailable(msg, socketid);
+                            broadcast_audio?.Invoke(msg, id);
+
+                        };
 
 
-               };
+                    }
+
+
+                };
             });
+            ////this channel used for voice toggle, send if voice is active or not from TCP client unreal engine
+            //_ = pc.AddDataChannelAsync("audio_toggler", true, true).ContinueWith(async (task) =>
+            //{
+            //    Console.WriteLine("task unreliable..");
+            //    var result = await task;
+            //    //dc_peers.Add(socketid, result);
+            //    int idd = 123;
+            //    result.StateChanged += async delegate ()
+            //    {
+            //        Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
+            //        Console.WriteLine($"id {idd}");
+            //        if (result.State == DataChannel.ChannelState.Open)
+            //        {
+            //            //broadcast += delegate (byte[] msg, int from)
+            //            //{
 
+            //            //    //Console.WriteLine("delegate broadcast called.. from: " + from);
+            //            //    if (id == from && from != -1) return;
+            //            //    //Console.WriteLine("delegate broadcast called.. and success ");
+            //            //    result.SendMessage(msg);
+            //            //};
+
+            //            Console.WriteLine("p2p voice connection establised");
+            //            result.MessageReceived += delegate (byte[] msg)
+            //            {
+            //                //recieveMsgP2P?.Invoke(msg, id);
+            //                WaveSource_DataAvailable(msg, socketid);
+
+            //            };
+
+
+            //        }
+
+
+            //    };
+            //});
+            ////this channel used for voice proximity, sending the near positions bp_peers (UDP)
+            //_ = pc.AddDataChannelAsync("proximity", false, false).ContinueWith(async (task) =>
+            //{
+            //    Console.WriteLine("task unreliable..");
+            //    var result = await task;
+            //    //dc_peers.Add(socketid, result);
+            //    int idd = 123;
+            //    result.StateChanged += delegate ()
+            //    {
+            //        Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
+            //        Console.WriteLine($"id {idd}");
+            //        if (result.State == DataChannel.ChannelState.Open)
+            //        {
+            //            broadcast_proximity += (msg, from) =>
+            //           {
+
+            //               //Console.WriteLine("delegate broadcast called.. from: " + from);
+            //               if (id == from && from != -1) return;
+            //               //Console.WriteLine("delegate broadcast called.. and success ");
+            //               result.SendMessage(msg);
+            //           };
+
+            //            Console.WriteLine("p2p voice connection establised");
+            //            result.MessageReceived += delegate (byte[] msg)
+            //            {
+            //                //recieveMsgP2P?.Invoke(msg, id);
+            //                WaveSource_DataAvailable(msg, socketid);
+            //                broadcast_proximity?.Invoke(msg, id);
+
+            //            };
+
+
+            //        }
+
+
+            //    };
+            //});
+            //waveSource.WaveFormat = new WaveFormat(44100, 1);
+
+            //LocalVideoTrack a;
+            //var deviceList = await DeviceVideoTrackSource.GetCaptureDevicesAsync();
+            //await DeviceAudioTrackSource.CreateAsync();
             Console.WriteLine("webrtc initialized");
+            await pc.AddLocalAudioTrackAsync();
 
             this.peers.Add(socketid, pc);
             //var result = await pc.AddDataChannelAsync("tets",false,false);
@@ -201,9 +343,15 @@ namespace ConsoleApp1
             Console.WriteLine(pc.Initialized);
             Console.WriteLine("Peer connection initialized.");
         }
+
+
+
         public delegate void BroadcastDelegate(byte[] data, int idDataChannel);
         public BroadcastDelegate broadcast_reliable;
         public BroadcastDelegate broadcast;
+        //public Action<byte[], int> broadcast_audio_toggler;
+        public Action<byte[], int> broadcast_audio;
+        //public Action<byte[], int> broadcast_proximity;
         //public void broadcast(byte[] message, int from)
         //{
         //    Console.WriteLine("from :" + from);

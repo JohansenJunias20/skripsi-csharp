@@ -24,3 +24,10 @@ C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\ne
 C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\System.Reactive.xml
 C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\runtimes\win10-x64\native\Microsoft.MixedReality.WebRTC.Native.dll
 C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\runtimes\win10-x86\native\Microsoft.MixedReality.WebRTC.Native.dll
+C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\NAudio.dll
+C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\NAudio.Asio.dll
+C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\NAudio.Core.dll
+C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\NAudio.Midi.dll
+C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\NAudio.Wasapi.dll
+C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\NAudio.WinForms.dll
+C:\Users\c1419\source\repos\router-rebooter\ConsoleApp1\ConsoleApp1\bin\Debug\netcoreapp3.1\NAudio.WinMM.dll

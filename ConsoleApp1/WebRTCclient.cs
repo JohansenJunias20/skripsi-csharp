@@ -1,4 +1,6 @@
 ﻿using Microsoft.MixedReality.WebRTC;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -16,8 +18,22 @@ namespace ConsoleApp1
         public string socketid_server = "";
         public DataChannel channelServer = null;
         public DataChannel channelServerReliable = null;
+        public DataChannel channelServerVoice = null;
+        public Dictionary<string, AudioStruct> audioStructs = new Dictionary<string, AudioStruct>();
+        public WaveInEvent waveSource = new WaveInEvent();
         public WebRTCClient()
         {
+            var w = new Mp3FileReader("Wew");
+            //var 
+            waveSource.DataAvailable += WaveSource_DataAvailable;
+            waveSource.DeviceNumber = 1;
+            waveSource.StartRecording();
+            int waveOutDevices = WaveOut.DeviceCount;
+            for (int waveOutDevice = 0; waveOutDevice < waveOutDevices; waveOutDevice++)
+            {
+                WaveOutCapabilities deviceInfo = WaveOut.GetCapabilities(waveOutDevice);
+                Console.WriteLine("Device {0}: {1}, {2} channels", waveOutDevice, deviceInfo.ProductName, deviceInfo.Channels);
+            }
             //why use task run?
             //sepertinya PeerConnection datachannel menggunakan thread utama
             //sehingga apapun yang menggunakan thread utama akan keblok
@@ -87,7 +103,7 @@ namespace ConsoleApp1
             pc_server.DataChannelAdded += (data) =>
            {
                Console.WriteLine("data channel added...");
-               if (data.Label == "channel")
+               if (data.Label == "transform")
                {
                    //unreliable
                    channelServer = data;
@@ -99,12 +115,40 @@ namespace ConsoleApp1
                        recieve?.Invoke(msg);
                    };
                }
-               else
+               else if (data.Label == "reliable")
                {
                    channelServerReliable = data;
                    data.MessageReceived += delegate (byte[] msg)
                    {
                        recieveReliable?.Invoke(msg);
+                   };
+               }
+               else if (data.Label == "audio")
+               {
+                   channelServerVoice = data;
+                   data.MessageReceived += delegate (byte[] msg)
+                   {
+                       var result = JsonConvert.DeserializeObject<DataVoice>(Encoding.UTF8.GetString(msg));
+                       if (!audioStructs.ContainsKey(result.socketid))
+                       {
+                           var WF = new WaveFormat(8000, 1);
+                           var bwp = new BufferedWaveProvider(WF);
+                           //var t = new MultiplexingWaveProvider(new IWaveProvider[] { bwp }, 2);
+                           //t.ConnectInputToOutput()
+                           var audiostruct = new AudioStruct()
+                           {
+                               bwp = bwp,
+                               wo = new WaveOutEvent(),
+                               vsp = new VolumeSampleProvider(bwp.ToSampleProvider())
+                           };
+                           audiostruct.vsp.Volume = 0f;
+                           audiostruct.wo.Init(audiostruct.vsp);
+                           audiostruct.wo.Play();
+                           audioStructs.Add(result.socketid, audiostruct);
+                           return; //return because this take so long time,
+                       }
+                       audioStructs[result.socketid].bwp.AddSamples(result.data, 0, result.data.Length);
+                       //recieveReliable?.Invoke(msg);
                    };
                }
 
@@ -114,6 +158,18 @@ namespace ConsoleApp1
             Console.WriteLine(pc_server.Initialized);
             Console.WriteLine("peer initialized!");
         }
+
+        private void WaveSource_DataAvailable(object sender, WaveInEventArgs e)
+        {
+            //if(channelServerVoice != null)
+            //{
+            sendVoice(e.Buffer);
+            //}
+            //throw new NotImplementedException();
+        }
+
+        int numFrames = 0;
+
         public delegate void NotifyRecieve(byte[] data);
         public NotifyRecieve recieve;
         public NotifyRecieve recieveReliable;
@@ -138,7 +194,7 @@ namespace ConsoleApp1
         {
             if (channelServer == null)
             {
-                Console.WriteLine("channel is null");
+                Console.WriteLine("channel unreliable is null");
                 return;
             };
             if (channelServer.State == DataChannel.ChannelState.Open)
@@ -152,11 +208,46 @@ namespace ConsoleApp1
             }
 
         }
+        public struct DataVoice
+        {
+            public byte[] data;
+            public string socketid;
+        };
+        public void sendVoice(byte[] buffer)
+        {
+            if (channelServerVoice == null)
+            {
+                Console.WriteLine("channel voice is null");
+                return;
+            };
+            if (channelServerVoice.State == DataChannel.ChannelState.Open)
+            {
+                if (Program.player_proximity[Program.ws.socket.Id] == 0)
+                {
+                    return; //no need to send because the volume is 0
+                }
+                channelServerVoice.SendMessage(buffer);
+                //var data = new DataVoice()
+                //{
+                //    data = buffer,
+                //    socketid = Program.ws.socket.Id
+                //};
+                //var str = JsonConvert.SerializeObject(data);
+                //Console.WriteLine(str);
+                //var buffer_final = Encoding.UTF8.GetBytes(str);
+                //Console.WriteLine("reliable message sent to p2p server");
+                //channelServerVoice.SendMessage(buffer);
+            }
+            else
+            {
+                Console.WriteLine("data channel reliable is not open yet!!!");
+            }
+        }
         public void sendReliable(byte[] msg)
         {
             if (channelServerReliable == null)
             {
-                Console.WriteLine("channel is null");
+                Console.WriteLine("channel reliable is null");
                 return;
             };
             if (channelServerReliable.State == DataChannel.ChannelState.Open)

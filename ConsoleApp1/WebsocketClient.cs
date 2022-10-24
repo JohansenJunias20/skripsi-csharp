@@ -14,6 +14,7 @@ namespace ConsoleApp1
             socket.OnConnected += async (sender, e) =>
            {
                Console.WriteLine("connected to socketio server");
+               Program.player_proximity.Add(socket.Id, 100);
            };
             socket.OnError += Socket_OnError;
             //socket.On("test", () =>

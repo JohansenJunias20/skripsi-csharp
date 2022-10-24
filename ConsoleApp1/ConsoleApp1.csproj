@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="EngineIoClientDotNet" Version="0.9.22" />
     <PackageReference Include="Microsoft.MixedReality.WebRTC" Version="1.0.3" />
+    <PackageReference Include="NAudio" Version="2.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="SocketIOClient" Version="3.0.6" />
   </ItemGroup>

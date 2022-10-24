@@ -1,4 +1,6 @@
 ﻿using Microsoft.MixedReality.WebRTC;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -20,14 +22,59 @@ namespace ConsoleApp1
         public static UDPServer UDPServerUE5; // to recieve UDP packet from UE5
         public static UDPClient UDPClientUE5; // to send UDP packet to UE5
         public static TCPServer TCPServerUE5 = null; // to recieve and send packet from UE5 (because it is bi-directional and open an connection)
-        static async Task Main(string[] args)
+        static WaveInEvent waveSource = null;
+        public static BufferedWaveProvider bwp;
+        public static BufferedWaveProvider bwp2;
+        static WaveOutEvent waveOut = null;
+        static WaveOutEvent waveOut2 = null;
+        private static void WaveSource_RecordingStopped(object sender, StoppedEventArgs e)
         {
-            #region DEBUG
-            //debugWebrtc();
-            //return;
-            #endregion
-            //Console.WriteLine("port UDP server(0/1/2/3/...)");
-            //var mod = Convert.ToInt32(Console.ReadLine());
+            throw new NotImplementedException();
+        }
+
+        private static async void WaveSource_DataAvailable(object sender, WaveInEventArgs e)
+        {
+            await Task.Delay(4000);
+            Console.WriteLine("1");
+            //throw new NotImplementedException();
+            bwp.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            //Task.Run(async () =>
+            //{
+            //    //Task
+            //    bwp2.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            //});
+        }
+        static async Task Main(string[] args)
+        //static void Main(string[] args)
+        {
+            var WF = new WaveFormat(8000, 1);
+            var bwp1 = new BufferedWaveProvider(WF);
+            var bwp2 = new BufferedWaveProvider(WF);
+            WaveInEvent waveSource = new WaveInEvent();
+            waveSource.DataAvailable += (w, e) =>
+           {
+               bwp1.AddSamples(e.Buffer, 0, e.BytesRecorded);
+               bwp2.AddSamples(e.Buffer, 0, e.BytesRecorded);
+           };
+            waveSource.DeviceNumber = 1;
+            waveSource.StartRecording();
+
+            //var input1 = new Mp3FileReader(@"C:\Users\c1419\Downloads\Armani White - BILLIE EILISH. (Official Video).mp3");
+            //var input2 = new Mp3FileReader(@"C:\Users\c1419\Downloads\ambient-music.mp3");
+
+            var vsp1 = new VolumeSampleProvider(bwp1.ToSampleProvider());//input1.
+            vsp1.Volume = 0.1f;
+            var vsp2 = new VolumeSampleProvider(bwp2.ToSampleProvider());//input1.
+            vsp2.Volume = 0.9f;
+            MultiplexingWaveProvider waveProvider = new MultiplexingWaveProvider(new IWaveProvider[] { vsp1.ToWaveProvider(), vsp2.ToWaveProvider() }, 2);
+            //waveProvider.ConnectInputToOutput(0, 0);
+            //waveProvider.ConnectInputToOutput(1, 1);
+            WaveOut wave = new WaveOut();
+            wave.Init(waveProvider);
+            wave.Play();
+            Console.Read();
+            return;
+
             var mod = 0;
 
             var portUDPserver = 3001 + (3 * mod);
@@ -88,6 +135,7 @@ namespace ConsoleApp1
                     webRTCserver.recieveMsgP2P += (msg, e) =>
                     {
                         //Console.WriteLine(Encoding.UTF8.GetString(msg));
+                        webRTCserver.broadcast?.Invoke(msg, e);
                         UDPClientUE5.send(msg);
                     };
                     webRTCserver.recieveMsgP2PReliable += (msg, e) =>
@@ -96,6 +144,7 @@ namespace ConsoleApp1
                         Console.WriteLine(Encoding.UTF8.GetString(msg));
                         //if (TCPServerUE5 != null)
                         TCPServerUE5?.send(msg);
+                        webRTCserver.broadcast_reliable?.Invoke(msg, e);
                     };
 
 
@@ -141,6 +190,8 @@ namespace ConsoleApp1
             client,
             notset
         }
+        //socket id as key, int as volume (0-100)
+        public static Dictionary<string, int> player_proximity = new Dictionary<string, int>();
         public static TypeWebRTC typeWebRTC = TypeWebRTC.notset;
         public static WebRTCServer webRTCserver = null;
         public static WebRTCClient WebRTCclient = null;
@@ -246,14 +297,82 @@ namespace ConsoleApp1
                 //Console.WriteLine("recieve from client game send to server...");
                 WebRTCclient.send(data);
             }
+            //return;
+            var str = Encoding.UTF8.GetString(data);
+            // to do:
+            // encode to json, get channel, if channel voice then get the socket id list, 
+            // send to specific socket id
+            try
+            {
+
+                var obj = JsonConvert.DeserializeObject<UDPProximityResponse>(str);
+                if (obj.channel == "proximity")
+                {
+                    if (typeWebRTC == TypeWebRTC.server)
+                    {
+                        //Console.WriteLine("recieve from server game broadcast to every peer...");
+                        //webRTCserver?.broadcast_proximity?.Invoke(data, -1); // -1 because the server
+                        Console.WriteLine(str);
+                        foreach (var item in obj.data.proximity)
+                        {
+                            if (player_proximity.ContainsKey(item.socketid))
+                            {
+                                player_proximity[item.socketid] = item.volume;
+                            }
+                            else
+                            {
+                                player_proximity.Add(item.socketid, item.volume);
+                            }
+                        }
+                        //obj.data.proximity[0].socketid
+                    }
+                    else if (typeWebRTC == TypeWebRTC.client)
+                    {
+                        Console.WriteLine(str);
+                        foreach (var item in obj.data.proximity)
+                        {
+                            if (player_proximity.ContainsKey(item.socketid))
+                            {
+                                player_proximity[item.socketid] = item.volume;
+                            }
+                            else
+                            {
+                                player_proximity.Add(item.socketid, item.volume);
+                            }
+                        }
+                        //WebRTCclient.send(data);
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
+
 
             //throw new NotImplementedException();
             //UDPClientUE5.send(data);
             //Console.WriteLine($"recieve a :{data}, sending it back...");
         }
-
-
-
+        private struct Proximity
+        {
+            public string socketid;
+            public int volume;
+        }
+        private struct UDPData
+        {
+            public Proximity[] proximity;
+        }
+        private struct UDPProximityResponse
+        {
+            public UDPData data;
+            public string channel;
+            public string from;
+            public string to;
+            public string socketid;
+        }
 
     }
 }
