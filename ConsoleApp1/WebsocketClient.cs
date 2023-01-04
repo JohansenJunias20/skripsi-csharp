@@ -10,11 +10,11 @@ namespace ConsoleApp1
         public WebsocketClient()
         {
             Console.WriteLine("connecting to socketio server...");
-            socket = new SocketIO("ws://192.168.1.99:3000");
+            socket = new SocketIO("ws://localhost:3000");
             socket.OnConnected += async (sender, e) =>
            {
                Console.WriteLine("connected to socketio server");
-               Program.player_proximity.Add(socket.Id, 100);
+               Program.player_proximity.Add(socket.Id, new Program.VolumeProximity() { left = 100, right = 100 });
            };
             socket.OnError += Socket_OnError;
             //socket.On("test", () =>

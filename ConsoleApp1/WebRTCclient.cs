@@ -23,16 +23,16 @@ namespace ConsoleApp1
         public WaveInEvent waveSource = new WaveInEvent();
         public WebRTCClient()
         {
-            var w = new Mp3FileReader("Wew");
+            //var w = new Mp3FileReader("Wew");
             //var 
             waveSource.DataAvailable += WaveSource_DataAvailable;
             waveSource.DeviceNumber = 1;
             waveSource.StartRecording();
-            int waveOutDevices = WaveOut.DeviceCount;
-            for (int waveOutDevice = 0; waveOutDevice < waveOutDevices; waveOutDevice++)
+            int waveInDevices = WaveIn.DeviceCount;
+            for (int waveInDevice = 0; waveInDevice < waveInDevices; waveInDevice++)
             {
-                WaveOutCapabilities deviceInfo = WaveOut.GetCapabilities(waveOutDevice);
-                Console.WriteLine("Device {0}: {1}, {2} channels", waveOutDevice, deviceInfo.ProductName, deviceInfo.Channels);
+                WaveInCapabilities deviceInfo = WaveIn.GetCapabilities(waveInDevice);
+                Console.WriteLine("Device {0}: {1}, {2} channels", waveInDevice, deviceInfo.ProductName, deviceInfo.Channels);
             }
             //why use task run?
             //sepertinya PeerConnection datachannel menggunakan thread utama
@@ -128,26 +128,33 @@ namespace ConsoleApp1
                    channelServerVoice = data;
                    data.MessageReceived += delegate (byte[] msg)
                    {
+                       Console.WriteLine(Encoding.UTF8.GetString(msg));
                        var result = JsonConvert.DeserializeObject<DataVoice>(Encoding.UTF8.GetString(msg));
                        if (!audioStructs.ContainsKey(result.socketid))
                        {
                            var WF = new WaveFormat(8000, 1);
-                           var bwp = new BufferedWaveProvider(WF);
+                           var bwpL = new BufferedWaveProvider(WF);
+                           var bwpR = new BufferedWaveProvider(WF);
                            //var t = new MultiplexingWaveProvider(new IWaveProvider[] { bwp }, 2);
                            //t.ConnectInputToOutput()
                            var audiostruct = new AudioStruct()
                            {
-                               bwp = bwp,
+                               bwpL = bwpL,
+                               bwpR = bwpR,
                                wo = new WaveOutEvent(),
-                               vsp = new VolumeSampleProvider(bwp.ToSampleProvider())
+                               vspL = new VolumeSampleProvider(bwpL.ToSampleProvider()),
+                               vspR = new VolumeSampleProvider(bwpR.ToSampleProvider())
                            };
-                           audiostruct.vsp.Volume = 0f;
-                           audiostruct.wo.Init(audiostruct.vsp);
+                           audiostruct.vspL.Volume = 0f;
+                           audiostruct.vspR.Volume = 0f;
+                           MultiplexingWaveProvider waveProvider = new MultiplexingWaveProvider(new IWaveProvider[] { audiostruct.vspL.ToWaveProvider(), audiostruct.vspR.ToWaveProvider() }, 2);
+                           audiostruct.wo.Init(waveProvider);
                            audiostruct.wo.Play();
                            audioStructs.Add(result.socketid, audiostruct);
                            return; //return because this take so long time,
                        }
-                       audioStructs[result.socketid].bwp.AddSamples(result.data, 0, result.data.Length);
+                       audioStructs[result.socketid].bwpL.AddSamples(result.data, 0, result.data.Length);
+                       audioStructs[result.socketid].bwpR.AddSamples(result.data, 0, result.data.Length);
                        //recieveReliable?.Invoke(msg);
                    };
                }
@@ -161,11 +168,8 @@ namespace ConsoleApp1
 
         private void WaveSource_DataAvailable(object sender, WaveInEventArgs e)
         {
-            //if(channelServerVoice != null)
-            //{
+
             sendVoice(e.Buffer);
-            //}
-            //throw new NotImplementedException();
         }
 
         int numFrames = 0;
@@ -222,7 +226,7 @@ namespace ConsoleApp1
             };
             if (channelServerVoice.State == DataChannel.ChannelState.Open)
             {
-                if (Program.player_proximity[Program.ws.socket.Id] == 0)
+                if (Program.player_proximity[Program.ws.socket.Id].left == 0 && Program.player_proximity[Program.ws.socket.Id].right == 0)
                 {
                     return; //no need to send because the volume is 0
                 }

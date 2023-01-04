@@ -22,11 +22,11 @@ namespace ConsoleApp1
         public static UDPServer UDPServerUE5; // to recieve UDP packet from UE5
         public static UDPClient UDPClientUE5; // to send UDP packet to UE5
         public static TCPServer TCPServerUE5 = null; // to recieve and send packet from UE5 (because it is bi-directional and open an connection)
-        static WaveInEvent waveSource = null;
-        public static BufferedWaveProvider bwp;
-        public static BufferedWaveProvider bwp2;
-        static WaveOutEvent waveOut = null;
-        static WaveOutEvent waveOut2 = null;
+        //static WaveInEvent waveSource = null;
+        //public static BufferedWaveProvider bwp;
+        //public static BufferedWaveProvider bwp2;
+        //static WaveOutEvent waveOut = null;
+        //static WaveOutEvent waveOut2 = null;
         private static void WaveSource_RecordingStopped(object sender, StoppedEventArgs e)
         {
             throw new NotImplementedException();
@@ -34,10 +34,10 @@ namespace ConsoleApp1
 
         private static async void WaveSource_DataAvailable(object sender, WaveInEventArgs e)
         {
-            await Task.Delay(4000);
-            Console.WriteLine("1");
+            //await Task.Delay(4000);
+            //Console.WriteLine("1");
             //throw new NotImplementedException();
-            bwp.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            //bwp.AddSamples(e.Buffer, 0, e.BytesRecorded);
             //Task.Run(async () =>
             //{
             //    //Task
@@ -47,33 +47,32 @@ namespace ConsoleApp1
         static async Task Main(string[] args)
         //static void Main(string[] args)
         {
-            var WF = new WaveFormat(8000, 1);
-            var bwp1 = new BufferedWaveProvider(WF);
-            var bwp2 = new BufferedWaveProvider(WF);
-            WaveInEvent waveSource = new WaveInEvent();
-            waveSource.DataAvailable += (w, e) =>
-           {
-               bwp1.AddSamples(e.Buffer, 0, e.BytesRecorded);
-               bwp2.AddSamples(e.Buffer, 0, e.BytesRecorded);
-           };
-            waveSource.DeviceNumber = 1;
-            waveSource.StartRecording();
+            // var WF = new WaveFormat(8000, 1);
+            // //BWP TETAP HARUS 2, KALAU TIDAK NANTI OUTPUT SUARANYA GANTIAN KARENA INPUT CUMA 1
+            // var bwp1 = new BufferedWaveProvider(WF);
+            // var bwp2 = new BufferedWaveProvider(WF);
+            // WaveInEvent waveSource = new WaveInEvent();
+            // waveSource.DataAvailable += (w, e) =>
+            //{
+            //    bwp1.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            //    bwp2.AddSamples(e.Buffer, 0, e.BytesRecorded);
+            //};
+            // waveSource.DeviceNumber = 1;
+            // waveSource.StartRecording();
 
-            //var input1 = new Mp3FileReader(@"C:\Users\c1419\Downloads\Armani White - BILLIE EILISH. (Official Video).mp3");
-            //var input2 = new Mp3FileReader(@"C:\Users\c1419\Downloads\ambient-music.mp3");
 
-            var vsp1 = new VolumeSampleProvider(bwp1.ToSampleProvider());//input1.
-            vsp1.Volume = 0.1f;
-            var vsp2 = new VolumeSampleProvider(bwp2.ToSampleProvider());//input1.
-            vsp2.Volume = 0.9f;
-            MultiplexingWaveProvider waveProvider = new MultiplexingWaveProvider(new IWaveProvider[] { vsp1.ToWaveProvider(), vsp2.ToWaveProvider() }, 2);
-            //waveProvider.ConnectInputToOutput(0, 0);
-            //waveProvider.ConnectInputToOutput(1, 1);
-            WaveOut wave = new WaveOut();
-            wave.Init(waveProvider);
-            wave.Play();
-            Console.Read();
-            return;
+            // var vsp1 = new VolumeSampleProvider(bwp1.ToSampleProvider());//input1.
+            // vsp1.Volume = 0.5f;
+            // var vsp2 = new VolumeSampleProvider(bwp2.ToSampleProvider());//input1.
+            // vsp2.Volume = 0.9f;
+            // MultiplexingWaveProvider waveProvider = new MultiplexingWaveProvider(new IWaveProvider[] { vsp1.ToWaveProvider(), vsp2.ToWaveProvider() }, 2);
+            // //waveProvider.ConnectInputToOutput(0, 0);
+            // //waveProvider.ConnectInputToOutput(1, 1);
+            // WaveOut wave = new WaveOut();
+            // wave.Init(waveProvider);
+            // wave.Play();
+            // Console.Read();
+            // return;
 
             var mod = 0;
 
@@ -128,6 +127,7 @@ namespace ConsoleApp1
             ws.socket.On("role", (data) =>
             {
                 var role = data.GetValue<string>();
+                Console.WriteLine("recieveing role...");
                 if (role == "server")
                 {
                     typeWebRTC = TypeWebRTC.server;
@@ -171,12 +171,6 @@ namespace ConsoleApp1
             //throw new NotImplementedException();
         }
 
-        private static void Pc_RemoteAudioFrameReady(AudioFrame frame)
-        {
-            //frame
-            //throw new NotImplementedException();
-        }
-
         //static void Main(string[] args)
         //{
         //    Console.ReadLine();
@@ -190,8 +184,13 @@ namespace ConsoleApp1
             client,
             notset
         }
+        public struct VolumeProximity
+        {
+            public int left;
+            public int right;
+        }
         //socket id as key, int as volume (0-100)
-        public static Dictionary<string, int> player_proximity = new Dictionary<string, int>();
+        public static Dictionary<string, VolumeProximity> player_proximity = new Dictionary<string, VolumeProximity>();
         public static TypeWebRTC typeWebRTC = TypeWebRTC.notset;
         public static WebRTCServer webRTCserver = null;
         public static WebRTCClient WebRTCclient = null;
@@ -236,51 +235,8 @@ namespace ConsoleApp1
                 WebRTCclient.sendReliable(data);
             }
             return;
-            //data = Regex.Replace(data, @"\s+", "");
-            ////write data to data.txt
-            //File.WriteAllTextAsync("data.txt", data).Wait();
-            //Console.WriteLine($"recieve tcp data: '{data}'");
-            ////var room = data.Split("|")[1];
-            ////Console.WriteLine($"ROOM: '{room}'");
-            ////return;
-            //if (data.Contains("server"))
-            //{
-            //    UDPClientUE5.send("testing saja");
-
-            //    Console.WriteLine("initiation webrtc connection as server...");
-            //    webRTCserver = new WebRTCServer();
-            //    webRTCserver.recieveMsgP2P += delegate (byte[] msg, int id)
-            //    {
-            //        //Console.WriteLine("recieve message from client p2p..");
-            //        //Console.WriteLine(Encoding.Default.GetString(msg));
-            //        UDPClientUE5.send(msg);
-            //        // caused loop back
-            //        //webRTCserver.broadcast?.Invoke(msg, id);
-            //    };
-            //    typeWebRTC = TypeWebRTC.server;
-            //}
-            //else if (data.Contains("client"))
-            //{
-            //    UDPClientUE5.send("testing saja");
-            //    typeWebRTC = TypeWebRTC.client;
-            //    Console.WriteLine("initiation webrtc connection as client...");
-            //    WebRTCclient = new WebRTCClient();
-            //    WebRTCclient.recieve += delegate (byte[] msg) // INI JALANKAN DI TASK.RUN
-            //    {
-            //        Console.WriteLine("recieve from p2p server:");
-            //        UDPClientUE5.send(msg);
-            //        Console.WriteLine(Encoding.Default.GetString(msg));
-            //    };
-            //}
 
 
-        }
-        private static void initiateWebRTCserver()
-        {
-
-        }
-        private static void initiateWebRTCclient()
-        {
 
         }
         private static void UDPServerUE5_onReceive(byte[] data)
@@ -317,11 +273,14 @@ namespace ConsoleApp1
                         {
                             if (player_proximity.ContainsKey(item.socketid))
                             {
-                                player_proximity[item.socketid] = item.volume;
+                                var p = player_proximity[item.socketid];
+                                p.left = item.volumeLeft;
+                                p.right = item.volumeRight;
+                                player_proximity[item.socketid] = p;
                             }
                             else
                             {
-                                player_proximity.Add(item.socketid, item.volume);
+                                player_proximity.Add(item.socketid, new VolumeProximity() { left = item.volumeLeft, right = item.volumeRight }); ;
                             }
                         }
                         //obj.data.proximity[0].socketid
@@ -333,11 +292,14 @@ namespace ConsoleApp1
                         {
                             if (player_proximity.ContainsKey(item.socketid))
                             {
-                                player_proximity[item.socketid] = item.volume;
+                                var p = player_proximity[item.socketid];
+                                p.left = item.volumeLeft;
+                                p.right = item.volumeRight;
+                                player_proximity[item.socketid] = p;
                             }
                             else
                             {
-                                player_proximity.Add(item.socketid, item.volume);
+                                player_proximity.Add(item.socketid, new VolumeProximity() { left = item.volumeLeft, right = item.volumeRight });
                             }
                         }
                         //WebRTCclient.send(data);
@@ -359,7 +321,8 @@ namespace ConsoleApp1
         private struct Proximity
         {
             public string socketid;
-            public int volume;
+            public int volumeLeft;
+            public int volumeRight;
         }
         private struct UDPData
         {

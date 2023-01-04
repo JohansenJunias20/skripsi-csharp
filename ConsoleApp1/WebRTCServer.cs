@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using static ConsoleApp1.Program;
 using static ConsoleApp1.WebRTCClient;
 
 namespace ConsoleApp1
@@ -27,8 +28,10 @@ namespace ConsoleApp1
         public struct AudioStruct
         {
             public WaveOutEvent wo;
-            public BufferedWaveProvider bwp;
-            public VolumeSampleProvider vsp;
+            public BufferedWaveProvider bwpL;
+            public BufferedWaveProvider bwpR;
+            public VolumeSampleProvider vspL;
+            public VolumeSampleProvider vspR;
         }
         public Dictionary<string, PeerConnection> peers = new Dictionary<string, PeerConnection>();
         public Dictionary<string, DataChannel> dc_peers = new Dictionary<string, DataChannel>();
@@ -50,6 +53,7 @@ namespace ConsoleApp1
             Console.WriteLine("seted socketid_csharp..");
             Program.ws.socket.On("joinpeer", (response) =>
             {
+                Console.WriteLine("someone joinpeer");
                 //var resultstr = response.GetValue(0).ToString();
                 //var result = JsonConvert.DeserializeObject<JoinPeerResp>(resultstr);
                 //Console.WriteLine("client join.. try to create data channel..");
@@ -87,11 +91,15 @@ namespace ConsoleApp1
         {
             if (buffer == null) return;
             if (!audio_dict.ContainsKey(socketid)) return;
-           
-            audio_dict[socketid].vsp.Volume = ((float) Program.player_proximity[socketid])/100f;
+
+            //return;
+            audio_dict[socketid].vspL.Volume = ((float)Program.player_proximity[socketid].left) / 100f;
+            audio_dict[socketid].vspR.Volume = ((float)Program.player_proximity[socketid].right) / 100f;
             //Console.WriteLine($"final volume: {((float)Program.player_proximity[socketid]) / 100f}");
             //audio_dict[socketid].vsp.Volume = Program.player_proximity[socketid]/100;
-            audio_dict[socketid].bwp.AddSamples(buffer, 0, buffer.Length);
+            audio_dict[socketid].bwpL.AddSamples(buffer, 0, buffer.Length);
+            audio_dict[socketid].bwpR.AddSamples(buffer, 0, buffer.Length);
+            //Console.WriteLine("recieve..");
             //Console.WriteLine("recieving...");
 
         }
@@ -105,15 +113,20 @@ namespace ConsoleApp1
         public async Task onPeerJoin(string socketid)
         {
             var WF = new WaveFormat(8000, 1);
-            var bwp = new BufferedWaveProvider(WF);
+            var bwpL = new BufferedWaveProvider(WF);
+            var bwpR = new BufferedWaveProvider(WF);
             var audiostruct = new AudioStruct()
             {
-                bwp = bwp,
+                bwpL = bwpL,
+                bwpR = bwpR,
                 wo = new WaveOutEvent(),
-                vsp = new VolumeSampleProvider(bwp.ToSampleProvider())
+                vspL = new VolumeSampleProvider(bwpL.ToSampleProvider()),
+                vspR = new VolumeSampleProvider(bwpR.ToSampleProvider())
             };
-            audiostruct.vsp.Volume = 1f;
-            audiostruct.wo.Init(audiostruct.vsp);
+            audiostruct.vspL.Volume = 1f;
+            audiostruct.vspR.Volume = 1f;
+            MultiplexingWaveProvider waveProvider = new MultiplexingWaveProvider(new IWaveProvider[] { audiostruct.vspL.ToWaveProvider(), audiostruct.vspR.ToWaveProvider() }, 2);
+            audiostruct.wo.Init(waveProvider);
             audiostruct.wo.Play();
             audio_dict.Add(socketid, audiostruct);
             int id = peerLength;
@@ -122,7 +135,7 @@ namespace ConsoleApp1
             //Console.WriteLine("recieving...");
             if (!Program.player_proximity.ContainsKey(socketid))
             {
-                Program.player_proximity.Add(socketid, 100);
+                Program.player_proximity.Add(socketid, new VolumeProximity() { left = 100, right = 100 }); 
             }
 
             var pc = new PeerConnection();
@@ -237,7 +250,7 @@ namespace ConsoleApp1
                            //Console.WriteLine("delegate broadcast called.. from: " + from);
                            if (id == from && from != -1) return;
                            //Console.WriteLine("delegate broadcast called.. and success ");
-                           result.SendMessage(msg);
+                           //result.SendMessage(msg);
                        };
 
                         Console.WriteLine("p2p voice connection establised");
