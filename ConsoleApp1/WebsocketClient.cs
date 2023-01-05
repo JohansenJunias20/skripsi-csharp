@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using static ConsoleApp1.Program;
+
 namespace ConsoleApp1
 {
     internal class WebsocketClient
@@ -10,11 +12,17 @@ namespace ConsoleApp1
         public WebsocketClient()
         {
             Console.WriteLine("connecting to socketio server...");
-            socket = new SocketIO("ws://localhost:3000");
+            socket = new SocketIO("ws://192.168.1.16:3000");
             socket.OnConnected += async (sender, e) =>
            {
                Console.WriteLine("connected to socketio server");
-               Program.player_proximity.Add(socket.Id, new Program.VolumeProximity() { left = 100, right = 100 });
+               //Program.player_proximity.Add(socket.Id, new Program.VolumeProximity() { left = 100, right = 100 });
+              Program.me = new Player()
+               {
+                   socketid = socket.Id,
+                   breakoutRoom_RM_socketid = "",
+                   RM = false
+               };
            };
             socket.OnError += Socket_OnError;
             //socket.On("test", () =>

@@ -26,8 +26,9 @@ namespace ConsoleApp1
             //var w = new Mp3FileReader("Wew");
             //var 
             waveSource.DataAvailable += WaveSource_DataAvailable;
-            waveSource.DeviceNumber = 1;
+            //waveSource.DeviceNumber = 1;
             waveSource.StartRecording();
+
             int waveInDevices = WaveIn.DeviceCount;
             for (int waveInDevice = 0; waveInDevice < waveInDevices; waveInDevice++)
             {
@@ -50,7 +51,16 @@ namespace ConsoleApp1
                                   }
                 }
             };
-
+            Program.ws.socket.On("joinpeer", (response) =>
+            {
+                Console.WriteLine("someone joinpeer");
+                //var resultstr = response.GetValue(0).ToString();
+                //var result = JsonConvert.DeserializeObject<JoinPeerResp>(resultstr);
+                //Console.WriteLine("client join.. try to create data channel..");
+                var socketid = response.GetValue<string>();
+                if (socketid == Program.ws.socket.Id) return;
+                onPeerJoin(socketid);
+            });
             //ws = new WebsocketClient();
             Program.ws.socket.On("get:master_csharp", (data) =>
             {
@@ -58,7 +68,10 @@ namespace ConsoleApp1
                 socketid_server = data.GetValue<string>();
                 Console.WriteLine("socketid_server:");
                 Console.WriteLine(socketid_server);
+                Program.socketid_server = socketid_server;
                 startConnect();
+                onPeerJoin(Program.socketid_server); //initialize voice
+
             });
             Program.ws.socket.On("offer", (data) =>
             {
@@ -103,7 +116,7 @@ namespace ConsoleApp1
             pc_server.DataChannelAdded += (data) =>
            {
                Console.WriteLine("data channel added...");
-               if (data.Label == "transform")
+               if (data.Label == "unreliable")
                {
                    //unreliable
                    channelServer = data;
@@ -113,6 +126,16 @@ namespace ConsoleApp1
                        //send(msg); //send back to the server because difference time between computers
                        #endregion
                        recieve?.Invoke(msg);
+
+                       //because the server send data tick every tick to all players,
+                       //so we need to convert data tick to JSON to get the information of all breakout room
+                       //console app need to know all breakout room information to "play or not play" the audio 
+                       dynamic result = JsonConvert.DeserializeObject(Encoding.UTF8.GetString(msg));
+                       if (result["channel"] == "tick")
+                       {
+                           //this is tick
+                           //console app need gather information of the breakout rooms from here.
+                       }
                    };
                }
                else if (data.Label == "reliable")
@@ -121,6 +144,8 @@ namespace ConsoleApp1
                    data.MessageReceived += delegate (byte[] msg)
                    {
                        recieveReliable?.Invoke(msg);
+                       Console.WriteLine(Encoding.UTF8.GetString(msg, 0, msg.Length));
+
                    };
                }
                else if (data.Label == "audio")
@@ -128,33 +153,35 @@ namespace ConsoleApp1
                    channelServerVoice = data;
                    data.MessageReceived += delegate (byte[] msg)
                    {
-                       Console.WriteLine(Encoding.UTF8.GetString(msg));
+                       //Console.WriteLine(Encoding.UTF8.GetString(msg));
                        var result = JsonConvert.DeserializeObject<DataVoice>(Encoding.UTF8.GetString(msg));
+                       //Console.WriteLine("recieve voice from:");
+                       //Console.WriteLine(result.socketid);
                        if (!audioStructs.ContainsKey(result.socketid))
                        {
-                           var WF = new WaveFormat(8000, 1);
-                           var bwpL = new BufferedWaveProvider(WF);
-                           var bwpR = new BufferedWaveProvider(WF);
-                           //var t = new MultiplexingWaveProvider(new IWaveProvider[] { bwp }, 2);
-                           //t.ConnectInputToOutput()
-                           var audiostruct = new AudioStruct()
-                           {
-                               bwpL = bwpL,
-                               bwpR = bwpR,
-                               wo = new WaveOutEvent(),
-                               vspL = new VolumeSampleProvider(bwpL.ToSampleProvider()),
-                               vspR = new VolumeSampleProvider(bwpR.ToSampleProvider())
-                           };
-                           audiostruct.vspL.Volume = 0f;
-                           audiostruct.vspR.Volume = 0f;
-                           MultiplexingWaveProvider waveProvider = new MultiplexingWaveProvider(new IWaveProvider[] { audiostruct.vspL.ToWaveProvider(), audiostruct.vspR.ToWaveProvider() }, 2);
-                           audiostruct.wo.Init(waveProvider);
-                           audiostruct.wo.Play();
-                           audioStructs.Add(result.socketid, audiostruct);
                            return; //return because this take so long time,
                        }
-                       audioStructs[result.socketid].bwpL.AddSamples(result.data, 0, result.data.Length);
-                       audioStructs[result.socketid].bwpR.AddSamples(result.data, 0, result.data.Length);
+                       //Console.WriteLine("masuk");
+
+                       for (int i = 0; i < Program.Others.Count; i++)
+                       {
+                               //Console.WriteLine("masuk1");
+                           var other = Program.Others[i];
+                           if (other.socketid == result.socketid)
+                           {
+                               if (Program.me.breakoutRoom_RM_socketid == other.breakoutRoom_RM_socketid)
+                               {
+                                   //Console.WriteLine(result.data.Length);
+
+                                   //play because in the same breakout room.
+                                   audioStructs[result.socketid].bwp.AddSamples(result.data, 0, result.data.Length);
+                                   //Console.WriteLine("add samples");
+
+                               }
+                               break;
+                           }
+                       }
+
                        //recieveReliable?.Invoke(msg);
                    };
                }
@@ -164,6 +191,25 @@ namespace ConsoleApp1
             Program.ws.socket.EmitAsync("get:master_csharp", "");
             Console.WriteLine(pc_server.Initialized);
             Console.WriteLine("peer initialized!");
+        }
+
+        private void onPeerJoin(string socketid)
+        {
+            Console.WriteLine("on peer join socketid:");
+            Console.WriteLine(socketid);
+            var WF = new WaveFormat(8000, 1);
+            var bwp = new BufferedWaveProvider(WF);
+            //var t = new MultiplexingWaveProvider(new IWaveProvider[] { bwp }, 2);
+            //t.ConnectInputToOutput()
+            var audiostruct = new AudioStruct()
+            {
+                bwp = bwp,
+                wo = new WaveOutEvent()
+            };
+            audiostruct.wo.Init(bwp);
+            audiostruct.wo.Play();
+            audioStructs.Add(socketid, audiostruct);
+            Program.Others.Add(new Program.Player(){ socketid = socketid, RM = false, breakoutRoom_RM_socketid = "" });
         }
 
         private void WaveSource_DataAvailable(object sender, WaveInEventArgs e)
@@ -177,6 +223,8 @@ namespace ConsoleApp1
         public delegate void NotifyRecieve(byte[] data);
         public NotifyRecieve recieve;
         public NotifyRecieve recieveReliable;
+
+
         //gameid is socket id yang client dari unreal engine.
         private void startConnect()
         {
@@ -226,11 +274,17 @@ namespace ConsoleApp1
             };
             if (channelServerVoice.State == DataChannel.ChannelState.Open)
             {
-                if (Program.player_proximity[Program.ws.socket.Id].left == 0 && Program.player_proximity[Program.ws.socket.Id].right == 0)
+                //if (Program.player_proximity[Program.ws.socket.Id].left == 0 && Program.player_proximity[Program.ws.socket.Id].right == 0)
+                //{
+                //    return; //no need to send because the volume is 0
+                //}
+                var data = new DataVoice()
                 {
-                    return; //no need to send because the volume is 0
-                }
-                channelServerVoice.SendMessage(buffer);
+                    data = buffer,
+                    socketid = Program.ws.socket.Id
+                };
+                var result = JsonConvert.SerializeObject(data);
+                channelServerVoice.SendMessage(Encoding.UTF8.GetBytes(result));
                 //var data = new DataVoice()
                 //{
                 //    data = buffer,

@@ -28,21 +28,18 @@ namespace ConsoleApp1
         public struct AudioStruct
         {
             public WaveOutEvent wo;
-            public BufferedWaveProvider bwpL;
-            public BufferedWaveProvider bwpR;
-            public VolumeSampleProvider vspL;
-            public VolumeSampleProvider vspR;
+            public BufferedWaveProvider bwp;
         }
         public Dictionary<string, PeerConnection> peers = new Dictionary<string, PeerConnection>();
         public Dictionary<string, DataChannel> dc_peers = new Dictionary<string, DataChannel>();
         public Dictionary<string, AudioStruct> audio_dict = new Dictionary<string, AudioStruct>();
         public Dictionary<string, DataChannel> dc_peers_reliable = new Dictionary<string, DataChannel>();
-        //public WaveInEvent waveSource;
+        public WaveInEvent waveSource;
         public WebRTCServer()
         {
-            //waveSource = new WaveInEvent();
-            //waveSource.DataAvailable += WaveSource_DataAvailable;
-            //waveSource.StartRecording();
+            waveSource = new WaveInEvent();
+            waveSource.DataAvailable += WaveSource_DataAvailable;
+            waveSource.StartRecording();
             //Console.WriteLine("initializing webrtcserver");
             //Program.ws = new WebsocketClient();
             //Console.WriteLine("setting socketid_csharp..");
@@ -77,9 +74,20 @@ namespace ConsoleApp1
                 //SdpMessage sdp = new SdpMessage();
                 //sdp.Content = result.sdp;
                 if (result.type == "answer")
-                    peers[result.socketid].SetRemoteDescription(result.type, result.sdp);
+                {
+                    try
+                    {
+
+                        peers[result.socketid].SetRemoteDescription(result.type, result.sdp);
+                    }
+                    catch (Exception ex)
+                    {
+
+                    }
+                }
             });
             int waveOutDevices = WaveOut.DeviceCount;
+            //createAudioStruct(Program.ws.socket.Id);
             for (int waveOutDevice = 0; waveOutDevice < waveOutDevices; waveOutDevice++)
             {
                 WaveOutCapabilities deviceInfo = WaveOut.GetCapabilities(waveOutDevice);
@@ -87,18 +95,54 @@ namespace ConsoleApp1
             }
         }
 
-        private void WaveSource_DataAvailable(byte[] buffer, string socketid)
+        private void WaveSource_DataAvailable(object sender, WaveInEventArgs e)
+        {
+            var data = new DataVoice()
+            {
+                data = e.Buffer,
+                socketid = Program.ws.socket.Id
+            };
+            var result = JsonConvert.SerializeObject(data);
+            //Console.WriteLine(data.data.Length);
+            this.broadcast_audio?.Invoke(Encoding.UTF8.GetBytes(result), -1); // -1 because from server
+            //RecieveWaveSource(Encoding.UTF8.GetBytes(result), Program.ws.socket.Id);
+        }
+
+        private void RecieveWaveSource(byte[] buffer, string socketid)
         {
             if (buffer == null) return;
             if (!audio_dict.ContainsKey(socketid)) return;
 
-            //return;
-            audio_dict[socketid].vspL.Volume = ((float)Program.player_proximity[socketid].left) / 100f;
-            audio_dict[socketid].vspR.Volume = ((float)Program.player_proximity[socketid].right) / 100f;
-            //Console.WriteLine($"final volume: {((float)Program.player_proximity[socketid]) / 100f}");
-            //audio_dict[socketid].vsp.Volume = Program.player_proximity[socketid]/100;
-            audio_dict[socketid].bwpL.AddSamples(buffer, 0, buffer.Length);
-            audio_dict[socketid].bwpR.AddSamples(buffer, 0, buffer.Length);
+            var str = Encoding.UTF8.GetString(buffer);
+            //Console.WriteLine(socketid);
+
+            //audio_dict.Keys
+            var obj = JsonConvert.DeserializeObject<DataVoice>(str);
+            audio_dict[obj.socketid].bwp.AddSamples(obj.data, 0, obj.data.Length);
+            //Console.WriteLine("add samples from client");
+            return;
+            for (int i = 0; i < Program.Others.Count; i++)
+            {
+                var other = Program.Others[i];
+                if (socketid == other.socketid)
+                {
+                    if (other.breakoutRoom_RM_socketid == Program.me.breakoutRoom_RM_socketid)
+                    {
+                        //Console.WriteLine($"final volume: {((float)Program.player_proximity[socketid]) / 100f}");
+                        //audio_dict[socketid].vsp.Volume = Program.player_proximity[socketid]/100;
+                        str = Encoding.UTF8.GetString(buffer);
+                        //Console.WriteLine(str);
+                        obj = JsonConvert.DeserializeObject<DataVoice>(str);
+                        audio_dict[socketid].bwp.AddSamples(obj.data, 0, obj.data.Length);
+                        //Console.WriteLine("add samples");
+                        //Console.WriteLine(obj.data);
+
+                    }
+                    break;
+
+                }
+            }
+
             //Console.WriteLine("recieve..");
             //Console.WriteLine("recieving...");
 
@@ -110,33 +154,45 @@ namespace ConsoleApp1
         //datachannel key-nya didaftarkan berdasarkan idgame bukan socketid
         //karena socketid sudah tidak ada fungsinya lagi bila koneksi p2p sudah terestablished
         private int peerLength = 0;
-        public async Task onPeerJoin(string socketid)
+        private void createAudioStruct(string socketid)
         {
+            Console.WriteLine("creating audio struct for :");
+            Console.WriteLine(socketid);
+
             var WF = new WaveFormat(8000, 1);
-            var bwpL = new BufferedWaveProvider(WF);
-            var bwpR = new BufferedWaveProvider(WF);
+            var bwp = new BufferedWaveProvider(WF);
+            //var t = new MultiplexingWaveProvider(new IWaveProvider[] { bwp }, 2);
+            //t.ConnectInputToOutput()
             var audiostruct = new AudioStruct()
             {
-                bwpL = bwpL,
-                bwpR = bwpR,
-                wo = new WaveOutEvent(),
-                vspL = new VolumeSampleProvider(bwpL.ToSampleProvider()),
-                vspR = new VolumeSampleProvider(bwpR.ToSampleProvider())
+                bwp = bwp,
+                wo = new WaveOutEvent()
             };
-            audiostruct.vspL.Volume = 1f;
-            audiostruct.vspR.Volume = 1f;
-            MultiplexingWaveProvider waveProvider = new MultiplexingWaveProvider(new IWaveProvider[] { audiostruct.vspL.ToWaveProvider(), audiostruct.vspR.ToWaveProvider() }, 2);
-            audiostruct.wo.Init(waveProvider);
+            audiostruct.wo.Init(bwp);
             audiostruct.wo.Play();
             audio_dict.Add(socketid, audiostruct);
+        }
+        public async Task onPeerJoin(string socketid)
+        {
+            createAudioStruct(socketid);
+            //if (Program.ws.socket.Id != socketid)
+            //Program.Others.Add(new Player() { socketid = socketid, RM = false, breakoutRoom_RM_socketid = "" });
             int id = peerLength;
             peerLength++;
 
             //Console.WriteLine("recieving...");
-            if (!Program.player_proximity.ContainsKey(socketid))
+            var found = false;
+            for (int i = 0; i < Program.Others.Count; i++)
             {
-                Program.player_proximity.Add(socketid, new VolumeProximity() { left = 100, right = 100 }); 
+                var other = Program.Others[i];
+                if (other.socketid == socketid)
+                {
+                    found = true;
+                    break;
+                }
             }
+            if (!found)
+                Program.Others.Add(new Player() { socketid = socketid, RM = false, breakoutRoom_RM_socketid = "" });
 
             var pc = new PeerConnection();
             var config = new PeerConnectionConfiguration
@@ -169,7 +225,7 @@ namespace ConsoleApp1
             };
             await pc.InitializeAsync(config);
             Console.WriteLine("webrtc initialized");
-            _ = pc.AddDataChannelAsync("transform", false, false).ContinueWith(async (task) =>
+            _ = pc.AddDataChannelAsync("unreliable", false, false).ContinueWith(async (task) =>
            {
                //var rs = task.Result;
                Console.WriteLine("task unreliable..");
@@ -215,7 +271,7 @@ namespace ConsoleApp1
                        {
                            broadcast_reliable += delegate (byte[] msg, int from)
                            {
-
+                               Console.WriteLine(Encoding.UTF8.GetString(msg, 0, msg.Length));
                                //Console.WriteLine("delegate broadcast called.. from: " + from);
                                if (id == from && from != -1) return;
                                //Console.WriteLine("delegate broadcast called.. and success ");
@@ -245,23 +301,19 @@ namespace ConsoleApp1
                     Console.WriteLine($"id {idd}");
                     if (result.State == DataChannel.ChannelState.Open)
                     {
-                        broadcast_audio += (msg, from) =>
-                       {
-                           //Console.WriteLine("delegate broadcast called.. from: " + from);
-                           if (id == from && from != -1) return;
-                           //Console.WriteLine("delegate broadcast called.. and success ");
-                           //result.SendMessage(msg);
-                       };
+                       // broadcast_audio += (msg, from) =>
+                       //{
+                       //    if (id == from && from != -1) return;
+                       //    result.SendMessage(msg);
+                       //};
 
-                        Console.WriteLine("p2p voice connection establised");
-                        result.MessageReceived += delegate (byte[] msg)
-                        {
-                            //recieveMsgP2P?.Invoke(msg, id);
-                            //var data = JsonConvert.DeserializeObject<DataVoice>(Encoding.UTF8.GetString(msg, 0, msg.Length));
-                            WaveSource_DataAvailable(msg, socketid);
-                            broadcast_audio?.Invoke(msg, id);
+                       // Console.WriteLine("p2p voice connection establised");
+                       // result.MessageReceived += delegate (byte[] msg)
+                       // {
+                       //     RecieveWaveSource(msg, socketid);
+                       //     broadcast_audio?.Invoke(msg, id);
 
-                        };
+                       // };
 
 
                     }
@@ -269,90 +321,12 @@ namespace ConsoleApp1
 
                 };
             });
-            ////this channel used for voice toggle, send if voice is active or not from TCP client unreal engine
-            //_ = pc.AddDataChannelAsync("audio_toggler", true, true).ContinueWith(async (task) =>
-            //{
-            //    Console.WriteLine("task unreliable..");
-            //    var result = await task;
-            //    //dc_peers.Add(socketid, result);
-            //    int idd = 123;
-            //    result.StateChanged += async delegate ()
-            //    {
-            //        Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
-            //        Console.WriteLine($"id {idd}");
-            //        if (result.State == DataChannel.ChannelState.Open)
-            //        {
-            //            //broadcast += delegate (byte[] msg, int from)
-            //            //{
+       
+            this.peers.Add(socketid, pc);
 
-            //            //    //Console.WriteLine("delegate broadcast called.. from: " + from);
-            //            //    if (id == from && from != -1) return;
-            //            //    //Console.WriteLine("delegate broadcast called.. and success ");
-            //            //    result.SendMessage(msg);
-            //            //};
-
-            //            Console.WriteLine("p2p voice connection establised");
-            //            result.MessageReceived += delegate (byte[] msg)
-            //            {
-            //                //recieveMsgP2P?.Invoke(msg, id);
-            //                WaveSource_DataAvailable(msg, socketid);
-
-            //            };
-
-
-            //        }
-
-
-            //    };
-            //});
-            ////this channel used for voice proximity, sending the near positions bp_peers (UDP)
-            //_ = pc.AddDataChannelAsync("proximity", false, false).ContinueWith(async (task) =>
-            //{
-            //    Console.WriteLine("task unreliable..");
-            //    var result = await task;
-            //    //dc_peers.Add(socketid, result);
-            //    int idd = 123;
-            //    result.StateChanged += delegate ()
-            //    {
-            //        Console.WriteLine($"datachannel state changed to: {result.State.ToString()}");
-            //        Console.WriteLine($"id {idd}");
-            //        if (result.State == DataChannel.ChannelState.Open)
-            //        {
-            //            broadcast_proximity += (msg, from) =>
-            //           {
-
-            //               //Console.WriteLine("delegate broadcast called.. from: " + from);
-            //               if (id == from && from != -1) return;
-            //               //Console.WriteLine("delegate broadcast called.. and success ");
-            //               result.SendMessage(msg);
-            //           };
-
-            //            Console.WriteLine("p2p voice connection establised");
-            //            result.MessageReceived += delegate (byte[] msg)
-            //            {
-            //                //recieveMsgP2P?.Invoke(msg, id);
-            //                WaveSource_DataAvailable(msg, socketid);
-            //                broadcast_proximity?.Invoke(msg, id);
-
-            //            };
-
-
-            //        }
-
-
-            //    };
-            //});
-            //waveSource.WaveFormat = new WaveFormat(44100, 1);
-
-            //LocalVideoTrack a;
-            //var deviceList = await DeviceVideoTrackSource.GetCaptureDevicesAsync();
-            //await DeviceAudioTrackSource.CreateAsync();
             Console.WriteLine("webrtc initialized");
             await pc.AddLocalAudioTrackAsync();
 
-            this.peers.Add(socketid, pc);
-            //var result = await pc.AddDataChannelAsync("tets",false,false);
-            //pc.InitializeAsync(config).Wait();
             Console.WriteLine(pc.Initialized);
             Console.WriteLine("Peer connection initialized.");
         }
@@ -362,33 +336,7 @@ namespace ConsoleApp1
         public delegate void BroadcastDelegate(byte[] data, int idDataChannel);
         public BroadcastDelegate broadcast_reliable;
         public BroadcastDelegate broadcast;
-        //public Action<byte[], int> broadcast_audio_toggler;
         public Action<byte[], int> broadcast_audio;
-        //public Action<byte[], int> broadcast_proximity;
-        //public void broadcast(byte[] message, int from)
-        //{
-        //    Console.WriteLine("from :" + from);
-        //    Console.WriteLine("dc peers:" + dc_peers.Count);
-        //    //foreach peer
-        //    foreach (var dc_peer in dc_peers)
-        //    {
-        //        Console.WriteLine("dc peers masuk loop");
-        //        Console.WriteLine("id: " + dc_peer.Value.ID);
-        //        if (dc_peer.Value.ID == from) continue; //the broadcaster
-        //        Console.WriteLine("dc peers masuk loop 1");
-        //        if (dc_peer.Value.State == DataChannel.ChannelState.Open)
-        //        {
-        //            Console.WriteLine("dc peers masuk loop 2");
-        //            dc_peer.Value.SendMessage(message);
-        //            Console.WriteLine("dc peers masuk loop 2");
-        //        }
-        //        else
-        //        {
-        //            Console.WriteLine("Cannot broadcast!, data channel state is closed");
-        //        }
-
-        //    }
-        //}
-
+     
     }
 }

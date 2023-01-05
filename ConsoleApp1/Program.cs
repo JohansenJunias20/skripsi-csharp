@@ -83,6 +83,7 @@ namespace ConsoleApp1
             var portTCPserver = 3003 + (3 * mod);
             //return;
             ws = new WebsocketClient();
+
             listenWebsocket();
 
             while (true)
@@ -184,13 +185,8 @@ namespace ConsoleApp1
             client,
             notset
         }
-        public struct VolumeProximity
-        {
-            public int left;
-            public int right;
-        }
+
         //socket id as key, int as volume (0-100)
-        public static Dictionary<string, VolumeProximity> player_proximity = new Dictionary<string, VolumeProximity>();
         public static TypeWebRTC typeWebRTC = TypeWebRTC.notset;
         public static WebRTCServer webRTCserver = null;
         public static WebRTCClient WebRTCclient = null;
@@ -200,6 +196,19 @@ namespace ConsoleApp1
         {
             return sWhitespace.Replace(input, replacement);
         }
+        public struct Player
+        {
+            public string socketid;
+            public string breakoutRoom_RM_socketid; //breakout room RM the socket id
+            public bool RM;
+        };
+        public static Player me = new Player()
+        {
+            socketid = "",
+            RM = false,
+            breakoutRoom_RM_socketid = ""
+        };
+        public static List<Player> Others = new List<Player>();
         private static void TCPServerUE5_onReceive(byte[] data)
         {
             var msg = Encoding.UTF8.GetString(data);
@@ -228,7 +237,7 @@ namespace ConsoleApp1
             }
             if (typeWebRTC == TypeWebRTC.server)
             {
-                webRTCserver.broadcast_reliable(data, -1);
+                webRTCserver.broadcast_reliable?.Invoke(data, -1);
             }
             else if (typeWebRTC == TypeWebRTC.client)
             {
@@ -245,6 +254,22 @@ namespace ConsoleApp1
             //Console.WriteLine("RECIEVE FROM UDP UE5..");
             if (typeWebRTC == TypeWebRTC.server)
             {
+                //because the server send data tick every tick to all players,
+                //so we need to convert data tick to JSON to get the information of all breakout room
+                //console app need to know all breakout room information to "play or not play" the audio 
+                var result = JsonConvert.DeserializeObject<UDPCustomICE<DataTick>>(Encoding.UTF8.GetString(data));
+                if (result.channel == "tick")
+                {
+                    //this is data tick
+                    //Console.WriteLine(result.data.players.Length);
+                    //console app need gather information of the breakout rooms from here.
+                    //var datatick = (UDPCustomICE)Convert.ChangeType(result["data"], typeof(UDPCustomICE));
+                    //datatick.
+
+                    //datatick.players
+                }
+
+
                 //Console.WriteLine("recieve from server game broadcast to every peer...");
                 webRTCserver?.broadcast?.Invoke(data, -1); // -1 because the server
             }
@@ -253,89 +278,60 @@ namespace ConsoleApp1
                 //Console.WriteLine("recieve from client game send to server...");
                 WebRTCclient.send(data);
             }
-            //return;
-            var str = Encoding.UTF8.GetString(data);
-            // to do:
-            // encode to json, get channel, if channel voice then get the socket id list, 
-            // send to specific socket id
-            try
-            {
 
-                var obj = JsonConvert.DeserializeObject<UDPProximityResponse>(str);
-                if (obj.channel == "proximity")
-                {
-                    if (typeWebRTC == TypeWebRTC.server)
-                    {
-                        //Console.WriteLine("recieve from server game broadcast to every peer...");
-                        //webRTCserver?.broadcast_proximity?.Invoke(data, -1); // -1 because the server
-                        Console.WriteLine(str);
-                        foreach (var item in obj.data.proximity)
-                        {
-                            if (player_proximity.ContainsKey(item.socketid))
-                            {
-                                var p = player_proximity[item.socketid];
-                                p.left = item.volumeLeft;
-                                p.right = item.volumeRight;
-                                player_proximity[item.socketid] = p;
-                            }
-                            else
-                            {
-                                player_proximity.Add(item.socketid, new VolumeProximity() { left = item.volumeLeft, right = item.volumeRight }); ;
-                            }
-                        }
-                        //obj.data.proximity[0].socketid
-                    }
-                    else if (typeWebRTC == TypeWebRTC.client)
-                    {
-                        Console.WriteLine(str);
-                        foreach (var item in obj.data.proximity)
-                        {
-                            if (player_proximity.ContainsKey(item.socketid))
-                            {
-                                var p = player_proximity[item.socketid];
-                                p.left = item.volumeLeft;
-                                p.right = item.volumeRight;
-                                player_proximity[item.socketid] = p;
-                            }
-                            else
-                            {
-                                player_proximity.Add(item.socketid, new VolumeProximity() { left = item.volumeLeft, right = item.volumeRight });
-                            }
-                        }
-                        //WebRTCclient.send(data);
-                    }
-                }
-
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-                return;
-            }
-
-
-            //throw new NotImplementedException();
-            //UDPClientUE5.send(data);
-            //Console.WriteLine($"recieve a :{data}, sending it back...");
         }
-        private struct Proximity
+        private struct Vector3
+        {
+            public float x, y, z;
+        }
+        private struct PlayerUDP
         {
             public string socketid;
-            public int volumeLeft;
-            public int volumeRight;
-        }
-        private struct UDPData
+            public Vector3 position;
+        };
+        private struct Object
         {
-            public Proximity[] proximity;
-        }
-        private struct UDPProximityResponse
+
+        };
+        private struct BreakoutRoomClient
         {
-            public UDPData data;
+
+        }
+        private struct BreakoutRoom
+        {
+            public int RM_PlayerId; //tidak dipakai
+            public BreakoutRoomClient[] Clients;
+            public string RM_PlayerNameVoiceEOS; //tidak dipakai
+            public bool Destroyed;
+            public string RM_SocketId;
+        }
+        private struct DataTick
+        {
+
+            public PlayerUDP[] players;
+            public Object[] objects;
+            public BreakoutRoom[] breakoutrooms;
+        }
+        private struct UDPCustomICE<T>// ini mengikuti struct Struct_CustomICE pada game Unreal Engine.
+        {
             public string channel;
-            public string from;
+            public T data;
             public string to;
-            public string socketid;
-        }
+            public string from;
+        };
+        //private struct UDPVoice
+        //{
+        //    public string socketid;
+        //    public bool block;
+        //}
+        //private struct UDPVoiceResponse
+        //{
+        //    public UDPVoice[] data;
+        //    public string channel;
+        //    public string from;
+        //    public string to;
+        //    public string socketid;
+        //}
 
     }
 }
