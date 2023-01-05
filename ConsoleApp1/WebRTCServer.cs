@@ -301,19 +301,19 @@ namespace ConsoleApp1
                     Console.WriteLine($"id {idd}");
                     if (result.State == DataChannel.ChannelState.Open)
                     {
-                       // broadcast_audio += (msg, from) =>
-                       //{
-                       //    if (id == from && from != -1) return;
-                       //    result.SendMessage(msg);
-                       //};
+                        broadcast_audio += (msg, from) =>
+                       {
+                           if (id == from && from != -1) return;
+                           result.SendMessage(msg);
+                       };
 
-                       // Console.WriteLine("p2p voice connection establised");
-                       // result.MessageReceived += delegate (byte[] msg)
-                       // {
-                       //     RecieveWaveSource(msg, socketid);
-                       //     broadcast_audio?.Invoke(msg, id);
+                        Console.WriteLine("p2p voice connection establised");
+                        result.MessageReceived += delegate (byte[] msg)
+                        {
+                            RecieveWaveSource(msg, socketid);
+                            broadcast_audio?.Invoke(msg, id);
 
-                       // };
+                        };
 
 
                     }

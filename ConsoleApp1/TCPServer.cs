@@ -60,7 +60,7 @@ namespace ConsoleApp1
                             var temp = new byte[1];
                             string responseData = "";
                             int numBytes = 0;
-                            byte[] by = new byte[1024];
+                            byte[] by = new byte[4096];
                             do
                             {
                                 ns.Read(temp, 0, 1);
