@@ -100,7 +100,8 @@ namespace ConsoleApp1
             var data = new DataVoice()
             {
                 data = e.Buffer,
-                socketid = Program.ws.socket.Id
+                socketid = Program.ws.socket.Id,
+                length = e.BytesRecorded
             };
             var result = JsonConvert.SerializeObject(data);
             //Console.WriteLine(data.data.Length);
@@ -117,31 +118,21 @@ namespace ConsoleApp1
             //Console.WriteLine(socketid);
 
             //audio_dict.Keys
-            var obj = JsonConvert.DeserializeObject<DataVoice>(str);
-            audio_dict[obj.socketid].bwp.AddSamples(obj.data, 0, obj.data.Length);
-            //Console.WriteLine("add samples from client");
-            return;
-            for (int i = 0; i < Program.Others.Count; i++)
+            if (Program.getBreakoutRoomIndex(socketid) == Program.getBreakoutRoomIndex(Program.ws.socket.Id))
             {
-                var other = Program.Others[i];
-                if (socketid == other.socketid)
+                var obj = JsonConvert.DeserializeObject<DataVoice>(str);
+                try
                 {
-                    if (other.breakoutRoom_RM_socketid == Program.me.breakoutRoom_RM_socketid)
-                    {
-                        //Console.WriteLine($"final volume: {((float)Program.player_proximity[socketid]) / 100f}");
-                        //audio_dict[socketid].vsp.Volume = Program.player_proximity[socketid]/100;
-                        str = Encoding.UTF8.GetString(buffer);
-                        //Console.WriteLine(str);
-                        obj = JsonConvert.DeserializeObject<DataVoice>(str);
-                        audio_dict[socketid].bwp.AddSamples(obj.data, 0, obj.data.Length);
-                        //Console.WriteLine("add samples");
-                        //Console.WriteLine(obj.data);
+                    audio_dict[obj.socketid].bwp.AddSamples(obj.data, 0, obj.length);
+                }
+                catch (Exception ex)
+                {
 
-                    }
-                    break;
-
+                    Console.WriteLine("buffer is full");
                 }
             }
+            return;
+
 
             //Console.WriteLine("recieve..");
             //Console.WriteLine("recieving...");
@@ -310,6 +301,7 @@ namespace ConsoleApp1
                         Console.WriteLine("p2p voice connection establised");
                         result.MessageReceived += delegate (byte[] msg)
                         {
+
                             RecieveWaveSource(msg, socketid);
                             broadcast_audio?.Invoke(msg, id);
 
@@ -321,7 +313,7 @@ namespace ConsoleApp1
 
                 };
             });
-       
+
             this.peers.Add(socketid, pc);
 
             Console.WriteLine("webrtc initialized");
@@ -337,6 +329,6 @@ namespace ConsoleApp1
         public BroadcastDelegate broadcast_reliable;
         public BroadcastDelegate broadcast;
         public Action<byte[], int> broadcast_audio;
-     
+
     }
 }

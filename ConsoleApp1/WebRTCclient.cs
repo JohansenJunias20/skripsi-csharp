@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using static ConsoleApp1.Program;
 using static ConsoleApp1.WebRTCServer;
 
 namespace ConsoleApp1
@@ -130,10 +131,11 @@ namespace ConsoleApp1
                        //because the server send data tick every tick to all players,
                        //so we need to convert data tick to JSON to get the information of all breakout room
                        //console app need to know all breakout room information to "play or not play" the audio 
-                       dynamic result = JsonConvert.DeserializeObject(Encoding.UTF8.GetString(msg));
-                       if (result["channel"] == "tick")
+                       var result = JsonConvert.DeserializeObject<UDPCustomICE<DataTick>>(Encoding.UTF8.GetString(msg));
+                       if (result.channel == "tick")
                        {
                            //this is tick
+                           Program.breakoutRooms = result.data.breakoutrooms;
                            //console app need gather information of the breakout rooms from here.
                        }
                    };
@@ -163,24 +165,20 @@ namespace ConsoleApp1
                        }
                        //Console.WriteLine("masuk");
 
-                       for (int i = 0; i < Program.Others.Count; i++)
+                       if(Program.getBreakoutRoomIndex(result.socketid) == Program.getBreakoutRoomIndex(Program.ws.socket.Id))
                        {
-                               //Console.WriteLine("masuk1");
-                           var other = Program.Others[i];
-                           if (other.socketid == result.socketid)
+                           try
                            {
-                               if (Program.me.breakoutRoom_RM_socketid == other.breakoutRoom_RM_socketid)
-                               {
-                                   //Console.WriteLine(result.data.Length);
 
-                                   //play because in the same breakout room.
-                                   audioStructs[result.socketid].bwp.AddSamples(result.data, 0, result.data.Length);
-                                   //Console.WriteLine("add samples");
-
-                               }
-                               break;
+                           audioStructs[result.socketid].bwp.AddSamples(result.data, 0, result.length);
                            }
-                       }
+                           catch (Exception ex)
+                           {
+                               Console.WriteLine("buffer is full");
+                           }
+
+                       };
+                     
 
                        //recieveReliable?.Invoke(msg);
                    };
@@ -264,6 +262,7 @@ namespace ConsoleApp1
         {
             public byte[] data;
             public string socketid;
+            public int length;
         };
         public void sendVoice(byte[] buffer)
         {

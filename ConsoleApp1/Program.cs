@@ -245,8 +245,6 @@ namespace ConsoleApp1
             }
             return;
 
-
-
         }
         private static void UDPServerUE5_onReceive(byte[] data)
         {
@@ -257,7 +255,8 @@ namespace ConsoleApp1
                 //because the server send data tick every tick to all players,
                 //so we need to convert data tick to JSON to get the information of all breakout room
                 //console app need to know all breakout room information to "play or not play" the audio 
-                var result = JsonConvert.DeserializeObject<UDPCustomICE<DataTick>>(Encoding.UTF8.GetString(data));
+                var str = Encoding.UTF8.GetString(data);
+                var result = JsonConvert.DeserializeObject<UDPCustomICE<DataTick>>(str);
                 if (result.channel == "tick")
                 {
                     //this is data tick
@@ -265,6 +264,8 @@ namespace ConsoleApp1
                     //console app need gather information of the breakout rooms from here.
                     //var datatick = (UDPCustomICE)Convert.ChangeType(result["data"], typeof(UDPCustomICE));
                     //datatick.
+                        breakoutRooms = result.data.breakoutrooms;
+                    //Console.WriteLine()
 
                     //datatick.players
                 }
@@ -280,24 +281,26 @@ namespace ConsoleApp1
             }
 
         }
-        private struct Vector3
+        public struct Vector3
         {
             public float x, y, z;
         }
-        private struct PlayerUDP
+        public struct PlayerUDP
         {
             public string socketid;
             public Vector3 position;
         };
-        private struct Object
+        public struct Object
         {
 
         };
-        private struct BreakoutRoomClient
+        public struct BreakoutRoomClient
         {
-
+           public int playerId;
+           public string playerNameEOSVoice;
+           public string socketio_id;
         }
-        private struct BreakoutRoom
+        public struct BreakoutRoom
         {
             public int RM_PlayerId; //tidak dipakai
             public BreakoutRoomClient[] Clients;
@@ -305,20 +308,45 @@ namespace ConsoleApp1
             public bool Destroyed;
             public string RM_SocketId;
         }
-        private struct DataTick
+        public struct DataTick
         {
 
             public PlayerUDP[] players;
             public Object[] objects;
             public BreakoutRoom[] breakoutrooms;
         }
-        private struct UDPCustomICE<T>// ini mengikuti struct Struct_CustomICE pada game Unreal Engine.
+        public struct UDPCustomICE<T>// ini mengikuti struct Struct_CustomICE pada game Unreal Engine.
         {
             public string channel;
             public T data;
             public string to;
             public string from;
         };
+        public static BreakoutRoom[] breakoutRooms = new BreakoutRoom[0];
+
+        //get breakout room index by socketId
+        public static int getBreakoutRoomIndex(string socketId)
+        {
+            for (int i = 0; i < breakoutRooms.Length; i++)
+            {
+                var room = breakoutRooms[i];
+                if (room.Destroyed) continue;
+                if (room.RM_SocketId == socketId)
+                {
+                    return i;
+                }
+
+                for (int j = 0; j < breakoutRooms[i].Clients.Length; j++)
+                {
+                    var cl = breakoutRooms[i].Clients[j];
+                    if (cl.socketio_id == socketId)
+                    {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
         //private struct UDPVoice
         //{
         //    public string socketid;
