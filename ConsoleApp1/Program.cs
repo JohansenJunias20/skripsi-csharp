@@ -281,6 +281,10 @@ namespace ConsoleApp1
             }
 
         }
+        public struct Transform
+        {
+            Vector3 location;
+        }
         public struct Vector3
         {
             public float x, y, z;
@@ -292,7 +296,7 @@ namespace ConsoleApp1
         };
         public struct Object
         {
-
+            public Transform transform;
         };
         public struct BreakoutRoomClient
         {

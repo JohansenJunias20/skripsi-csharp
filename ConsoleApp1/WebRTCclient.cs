@@ -131,12 +131,14 @@ namespace ConsoleApp1
                        //because the server send data tick every tick to all players,
                        //so we need to convert data tick to JSON to get the information of all breakout room
                        //console app need to know all breakout room information to "play or not play" the audio 
-                       var result = JsonConvert.DeserializeObject<UDPCustomICE<DataTick>>(Encoding.UTF8.GetString(msg));
+                       var str = Encoding.UTF8.GetString(msg);
+                       var result = JsonConvert.DeserializeObject<UDPCustomICE<DataTick>>(str);
                        if (result.channel == "tick")
                        {
                            //this is tick
-                           Program.breakoutRooms = result.data.breakoutrooms;
-                           //console app need gather information of the breakout rooms from here.
+                            Program.breakoutRooms = result.data.breakoutrooms;
+                           //if (result.data.objects.Length > 0)
+                               //Console.WriteLine(result.data.objects[0].transform.ToString());
                        }
                    };
                }
@@ -165,12 +167,12 @@ namespace ConsoleApp1
                        }
                        //Console.WriteLine("masuk");
 
-                       if(Program.getBreakoutRoomIndex(result.socketid) == Program.getBreakoutRoomIndex(Program.ws.socket.Id))
+                       if (Program.getBreakoutRoomIndex(result.socketid) == Program.getBreakoutRoomIndex(Program.ws.socket.Id))
                        {
                            try
                            {
-
-                           audioStructs[result.socketid].bwp.AddSamples(result.data, 0, result.length);
+                               Console.WriteLine("add samples");
+                               audioStructs[result.socketid].bwp.AddSamples(result.data, 0, result.length);
                            }
                            catch (Exception ex)
                            {
@@ -178,7 +180,7 @@ namespace ConsoleApp1
                            }
 
                        };
-                     
+
 
                        //recieveReliable?.Invoke(msg);
                    };
@@ -207,13 +209,13 @@ namespace ConsoleApp1
             audiostruct.wo.Init(bwp);
             audiostruct.wo.Play();
             audioStructs.Add(socketid, audiostruct);
-            Program.Others.Add(new Program.Player(){ socketid = socketid, RM = false, breakoutRoom_RM_socketid = "" });
+            Program.Others.Add(new Program.Player() { socketid = socketid, RM = false, breakoutRoom_RM_socketid = "" });
         }
 
         private void WaveSource_DataAvailable(object sender, WaveInEventArgs e)
         {
 
-            sendVoice(e.Buffer);
+            sendVoice(e.Buffer,e.BytesRecorded);
         }
 
         int numFrames = 0;
@@ -264,7 +266,7 @@ namespace ConsoleApp1
             public string socketid;
             public int length;
         };
-        public void sendVoice(byte[] buffer)
+        public void sendVoice(byte[] buffer,int length)
         {
             if (channelServerVoice == null)
             {
@@ -280,7 +282,8 @@ namespace ConsoleApp1
                 var data = new DataVoice()
                 {
                     data = buffer,
-                    socketid = Program.ws.socket.Id
+                    socketid = Program.ws.socket.Id,
+                    length=length
                 };
                 var result = JsonConvert.SerializeObject(data);
                 channelServerVoice.SendMessage(Encoding.UTF8.GetBytes(result));
